@@ -21,13 +21,16 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     await context.bot.send_message(chat_id=update.effective_chat.id, text="I'm a bot, please talk to me!")
 
 async def echo(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    await context.bot.send_message(chat_id=update.effective_chat.id, text=chat_phi_1_5(update.message.text))
+    # Split output by 4096 symbols
+    chat_bot_answer = chat_phi_1_5(update.message.text)
+    answers = [chat_bot_answer[i:i + 4096] for i in range(0, len(chat_bot_answer), 4096)]
+    for answer in answers:
+        await context.bot.send_message(chat_id=update.effective_chat.id, text=answer)
 
 async def image(update: Update, context: ContextTypes.DEFAULT_TYPE):
     new_file = await update.message.effective_attachment[-1].get_file()
     file_path = await new_file.download_to_drive()
-    await context.bot.send_message(chat_id=update.effective_chat.id, text="It is " + image_category_32_384(file_path))
-
+    await context.bot.send_message(chat_id=update.effective_chat.id, text="Most likely it's \n" + image_category_32_384(file_path))
 
 async def unknown(update: Update, context: ContextTypes.DEFAULT_TYPE):
     await context.bot.send_message(chat_id=update.effective_chat.id, text="Sorry, I didn't understand that command.")
