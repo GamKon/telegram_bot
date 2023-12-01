@@ -1,7 +1,3 @@
-# Disable tensorflow warnings
-import os
-os.environ['TF_CPP_MIN_LOG_LEVEL'] = "1"
-
 from transformers import ViTFeatureExtractor, ViTForImageClassification
 from PIL import Image
 #import requests

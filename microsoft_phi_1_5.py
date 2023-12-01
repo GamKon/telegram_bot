@@ -4,7 +4,7 @@ import torch
 from transformers import AutoModelForCausalLM, AutoTokenizer
 
 def chat_phi_1_5(chat_message):
-    torch.set_default_device("cuda")
+    torch.set_default_device("cpu")
     model = AutoModelForCausalLM.from_pretrained("microsoft/phi-1_5", trust_remote_code=True)
     tokenizer = AutoTokenizer.from_pretrained("microsoft/phi-1_5", trust_remote_code=True)
     inputs = tokenizer(chat_message, return_tensors="pt", return_attention_mask=False)
