@@ -22,12 +22,20 @@ logging.basicConfig(
 )
 
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    await context.bot.send_message(chat_id=update.effective_chat.id, text="I'm a bot, please talk to me!")
+    await context.bot.send_message(chat_id=update.effective_chat.id, text="I'm an AI, please talk to me or send me a picture!")
 
 async def echo(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    # Split output by 4096 symbols
+    chat_bot_ru_answer = "\n-------------------------------\nRussian translation:\n"
     chat_bot_en_answer = chat_phi_1_5(update.message.text)
-    chat_bot_answer = chat_bot_en_answer + "\n Russian translation:\n" + facebook_wmt19_en_ru(chat_bot_en_answer)
+    # Cut excessive text
+    chat_bot_en_answer = str(chat_bot_en_answer.partition("<|endoftext")[0])
+    # Split text to translate by 4096 symbols
+    # Ideally todo: make split by the end of sentance, not just by num of chars
+    answers_en = [chat_bot_en_answer[i:i + 768] for i in range(0, len(chat_bot_en_answer), 768)]
+    for answer_en in answers_en:
+        chat_bot_ru_answer = chat_bot_ru_answer + str(facebook_wmt19_en_ru(str(answer_en)))
+    chat_bot_answer = str(chat_bot_en_answer + chat_bot_ru_answer)
+    # Split output by 4096 symbols
     answers = [chat_bot_answer[i:i + 4096] for i in range(0, len(chat_bot_answer), 4096)]
     for answer in answers:
         await context.bot.send_message(chat_id=update.effective_chat.id, text=answer)
