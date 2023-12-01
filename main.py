@@ -5,7 +5,8 @@ import logging
 from telegram import Update
 from telegram.ext import filters, MessageHandler, ApplicationBuilder, CommandHandler, ContextTypes
 
-from vit_base_patch16_224 import image_category
+from vit_base_patch16_224 import image_category_16_224
+from vit_base_patch32_384 import image_category_32_384
 
 load_dotenv()
 TELEGRAM_BOT_TOKEN=os.getenv('TELEGRAM_BOT_TOKEN')
@@ -24,10 +25,8 @@ async def echo(update: Update, context: ContextTypes.DEFAULT_TYPE):
 async def image(update: Update, context: ContextTypes.DEFAULT_TYPE):
     new_file = await update.message.effective_attachment[-1].get_file()
     file_path = await new_file.download_to_drive()
+    await context.bot.send_message(chat_id=update.effective_chat.id, text="It is " + image_category_32_384(file_path))
 
-    await context.bot.send_message(chat_id=update.effective_chat.id, text=image_category(file_path))
-
-    #print(file_path)
 
 async def unknown(update: Update, context: ContextTypes.DEFAULT_TYPE):
     await context.bot.send_message(chat_id=update.effective_chat.id, text="Sorry, I didn't understand that command.")

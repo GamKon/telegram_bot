@@ -4,9 +4,9 @@ os.environ['TF_CPP_MIN_LOG_LEVEL'] = "1"
 
 from transformers import ViTImageProcessor, ViTForImageClassification
 from PIL import Image
-import requests
+#import requests
 
-def image_category(image_path):
+def image_category_16_224(image_path):
 
     image = Image.open(image_path)
 
