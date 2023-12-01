@@ -7,6 +7,7 @@ from telegram.ext import filters, MessageHandler, ApplicationBuilder, CommandHan
 
 from vit_base_patch16_224 import image_category_16_224
 from vit_base_patch32_384 import image_category_32_384
+from microsoft_phi_1_5 import chat_phi_1_5
 
 load_dotenv()
 TELEGRAM_BOT_TOKEN=os.getenv('TELEGRAM_BOT_TOKEN')
@@ -20,7 +21,7 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     await context.bot.send_message(chat_id=update.effective_chat.id, text="I'm a bot, please talk to me!")
 
 async def echo(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    await context.bot.send_message(chat_id=update.effective_chat.id, text=update.message.text)
+    await context.bot.send_message(chat_id=update.effective_chat.id, text=chat_phi_1_5(update.message.text))
 
 async def image(update: Update, context: ContextTypes.DEFAULT_TYPE):
     new_file = await update.message.effective_attachment[-1].get_file()
