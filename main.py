@@ -11,7 +11,7 @@ from telegram.ext import filters, MessageHandler, ApplicationBuilder, CommandHan
 #from vit_base_patch16_224 import image_category_16_224
 from vit_base_patch32_384 import image_category_32_384
 from microsoft_phi_1_5 import chat_phi_1_5
-from facebook_wmt19_en_ru import facebook_wmt19_en_ru, facebook_wmt19_ru_en
+from facebook_wmt19 import facebook_wmt19_en_ru, facebook_wmt19_ru_en
 from runwayml_stable_diffusion_v1_5 import stable_diffusion_v1_5
 from openai_whisper_large_v3 import openai_whisper_large_v3
 
@@ -44,14 +44,14 @@ async def help_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
 # /img command - Image generator
 async def image_generation(update: Update, context: ContextTypes.DEFAULT_TYPE):
     description = " ".join(context.args)
-    generated_picture = stable_diffusion_v1_5(description)
+    generated_picture = stable_diffusion_v1_5(description, "generated_images")
     await context.bot.send_photo(chat_id=update.effective_chat.id, photo=generated_picture)
 
 # /imgr command - Russian description Image Generator
 # TODO merge these two defs into one. Use conditionals for en_ru / ru_en
 async def image_ru_generation(update: Update, context: ContextTypes.DEFAULT_TYPE):
     description = facebook_wmt19_ru_en(str(" ".join(context.args)))
-    generated_picture = stable_diffusion_v1_5(description)
+    generated_picture = stable_diffusion_v1_5(description, "generated_images")
     await context.bot.send_photo(chat_id=update.effective_chat.id, photo=generated_picture)
 
 
@@ -91,17 +91,20 @@ async def echo_ru(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
 
 # Image classificator
-async def image(update: Update, context: ContextTypes.DEFAULT_TYPE):
+async def photo_classification(update: Update, context: ContextTypes.DEFAULT_TYPE):
     new_file    = await update.message.effective_attachment[-1].get_file()
-    file_path   = await new_file.download_to_drive()
+    file_name   = new_file.file_path.split("/")[-1]
+    # print("!!!!!!!-"+new_file.file_path.split("/")[-1]+"-!!!!!!!")
+    file_path   = await new_file.download_to_drive(custom_path="images/"+file_name)
     en_text     = "Most likely it's " + image_category_32_384(file_path)
     ru_text     = facebook_wmt19_en_ru(en_text)
     await context.bot.send_message(chat_id=update.effective_chat.id, text=en_text + "\n" + ru_text)
 
 # Audio processing
-async def audio(update: Update, context: ContextTypes.DEFAULT_TYPE):
+async def voice_trans(update: Update, context: ContextTypes.DEFAULT_TYPE):
     new_file    = await update.message.effective_attachment.get_file()
-    file_path   = await new_file.download_to_drive()
+    file_name   = new_file.file_path.split("/")[-1]
+    file_path   = await new_file.download_to_drive(custom_path="voice/"+file_name)
     await context.bot.send_message(chat_id=update.effective_chat.id, text=openai_whisper_large_v3(file_path))
 
 # Error message
@@ -127,10 +130,10 @@ if __name__ == '__main__':
     echo_ru_handler    = CommandHandler('txtr', echo_ru)
     application.add_handler(echo_ru_handler)
 
-    image_handler   = MessageHandler(filters.PHOTO , image)
+    image_handler   = MessageHandler(filters.PHOTO , photo_classification)
     application.add_handler(image_handler)
 
-    audio_handler   = MessageHandler(filters.VOICE , audio)
+    audio_handler   = MessageHandler(filters.VOICE , voice_trans)
     application.add_handler(audio_handler)
 
     # Other handlers
