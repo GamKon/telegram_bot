@@ -15,6 +15,8 @@ from facebook_wmt19 import facebook_wmt19_en_ru, facebook_wmt19_ru_en
 from runwayml_stable_diffusion_v1_5 import stable_diffusion_v1_5
 from openai_whisper_large_v3 import openai_whisper_large_v3
 from stabilityai_stable_diffusion_xl_base_1_0 import stable_diffusion_xl_base_1_0, stable_diffusion_xl_base_refiner_1_0
+from stabilityai_sd_x2_latent_upscaler import sd_x2_latent_upscaler
+from stabilityai_stable_diffusion_x4_upscaler import stable_diffusion_x4_upscaler
 
 # Load environment variables form .env
 load_dotenv()
@@ -26,14 +28,11 @@ logging.basicConfig(
     level=logging.INFO
 )
 
-# Dir to store media
-custom_path     = "media"
-
 
 # /start and /help commans
 help_message    =   "I'm an AI bot. Please send me:\n\
                     - voice message to translate and transcript\n\
-                    - picture to categirize.\n\
+                    - picture to 4x upscale and categorize.\n\
                     Commands:\n\
                     /img _description_ to generate a photo using runwayml/stable-diffusion-v1-5\n\
                     /txt _description_ to generate a text with microsoft/phi-1_5\n\
@@ -61,7 +60,9 @@ async def image_ench_generation(update: Update, context: ContextTypes.DEFAULT_TY
 # runwayml_stable_diffusion_v1_5
 # TODO merge these two defs into one. Use conditionals for en_ru / ru_en
 async def image_ru_generation(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    debug_print(str(" ".join(context.args)))
     description = facebook_wmt19_ru_en(str(" ".join(context.args)))
+    debug_print(description)
     generated_picture = stable_diffusion_v1_5(description, "generated_images")
     await context.bot.send_photo(chat_id=update.effective_chat.id, photo=generated_picture)
 
@@ -101,15 +102,23 @@ async def echo_ru(update: Update, context: ContextTypes.DEFAULT_TYPE):
         await context.bot.send_message(chat_id=update.effective_chat.id, text=answer)
 
 
-# Image classificator
+# Image classificator and 2x Upscaler
 async def photo_classification(update: Update, context: ContextTypes.DEFAULT_TYPE):
     new_file    = await update.message.effective_attachment[-1].get_file()
     file_name   = new_file.file_path.split("/")[-1]
-    # print("!!!!!!!-"+new_file.file_path.split("/")[-1]+"-!!!!!!!")
     file_path   = await new_file.download_to_drive(custom_path="images/"+file_name)
-    en_text     = "Most likely it's " + image_category_32_384(file_path)
+    description = image_category_32_384(file_path)
+    en_text     = "Most likely it's " + description
     ru_text     = facebook_wmt19_en_ru(en_text)
     await context.bot.send_message(chat_id=update.effective_chat.id, text=en_text + "\n" + ru_text)
+    # Upscaler
+
+    # Works only on top of any StableDiffusionUpscalePipeline checkpoint to enhance its output image resolution by a factor of 2.
+    # upscaled_picture = sd_x2_latent_upscaler(description, str(file_path))
+
+    upscaled_picture = stable_diffusion_x4_upscaler(description, str(file_path))
+    debug_print(upscaled_picture)
+    await context.bot.send_photo(chat_id=update.effective_chat.id, photo=upscaled_picture)
 
 # Audio processing
 async def voice_trans(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -121,6 +130,9 @@ async def voice_trans(update: Update, context: ContextTypes.DEFAULT_TYPE):
 # Error message
 async def error(update: Update, context: ContextTypes.DEFAULT_TYPE):
     await context.bot.send_message(chat_id=update.effective_chat.id, text="Sorry, I didn't understand that command.\n" + help_message)
+
+def debug_print(to_print):
+    print("\n!!!------------------------\n"+to_print+"\n------------------------!!!\n")
 
 if __name__ == '__main__':
     application     = ApplicationBuilder().token(TELEGRAM_BOT_TOKEN).build()
