@@ -31,12 +31,13 @@ logging.basicConfig(
 
 # /start and /help commans
 help_message    =   "I'm an AI bot. Please send me:\n\
-                    - voice message to translate and transcript\n\
-                    - picture to 4x upscale and categorize.\n\
-                    Commands:\n\
-                    /img _description_ to generate a photo using runwayml/stable-diffusion-v1-5\n\
-                    /txt _description_ to generate a text with microsoft/phi-1_5\n\
-                    /imgr and /txtr for russian _description_"
+- voice message to translate and transcript\n\
+- picture to 4x upscale and categorize.\n\
+Commands:\n\
+/img _description_ to generate a photo using runwayml/stable-diffusion-v1-5\n\
+/txt _description_ to generate a text with microsoft/phi-1_5\n\
+/imgr and /txtr for russian _description_"
+
 async def help_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
     await context.bot.send_message(chat_id=update.effective_chat.id, text=help_message)
 

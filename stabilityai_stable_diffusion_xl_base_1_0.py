@@ -72,13 +72,13 @@ def stable_diffusion_xl_base_1_0(prompt, file_path):
 
     # prompt = "An astronaut riding a green horse"
 
-    high_noise_frac = 0.8
-    n_steps = 48
+    #high_noise_frac = 0.8
+    #n_steps = 48
 
     image = pipe(
         prompt=prompt,
-        num_inference_steps=n_steps,
-        denoising_end=high_noise_frac,
+#        num_inference_steps=n_steps,
+#        denoising_end=high_noise_frac,
     ).images[0]
 
     image_name  = prompt.replace(" ", "_")+".png"
