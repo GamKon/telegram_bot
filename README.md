@@ -13,6 +13,9 @@ Commands:
 ```
 
 ## Used models:
+### Image 4x upscaler
+https://huggingface.co/stabilityai/stable-diffusion-x4-upscaler
+
 ### Image Classify:
 https://huggingface.co/google/vit-base-patch32-384
 
