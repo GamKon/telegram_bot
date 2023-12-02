@@ -38,8 +38,11 @@ def openai_whisper_large_v3(audio_file):
     #print(result["text"])
     return result["text"]
 
-# Whisper predicts the language of the source audio automatically. If the source audio language is known a-priori, it can be passed as an argument to the pipeline:
+# Whisper predicts the language of the source audio automatically.
+# If the source audio language is known a-priori, it can be passed as an argument to the pipeline:
     # result = pipe(sample, generate_kwargs={"language": "english"})
 
-# By default, Whisper performs the task of speech transcription, where the source audio language is the same as the target text language. To perform speech translation, where the target text is in English, set the task to "translate":
+# By default, Whisper performs the task of speech transcription,
+# where the source audio language is the same as the target text language.
+# To perform speech translation, where the target text is in English, set the task to "translate":
     # result = pipe(sample, generate_kwargs={"task": "translate"})

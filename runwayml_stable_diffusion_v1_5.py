@@ -1,3 +1,6 @@
+# https://huggingface.co/runwayml/stable-diffusion-v1-5
+# text-to-image diffusion model
+
 from diffusers import StableDiffusionPipeline
 import torch
 

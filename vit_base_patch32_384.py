@@ -1,7 +1,9 @@
+# https://huggingface.co/google/vit-base-patch32-384
+# Vision Transformer (base-sized model)
+
 from transformers import ViTFeatureExtractor, ViTForImageClassification
 from PIL import Image
 #import requests
-
 
 def image_category_32_384(image_path):
 #    url = 'http://images.cocodataset.org/val2017/000000039769.jpg'

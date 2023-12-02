@@ -1,3 +1,9 @@
+# Media
+*.jpg
+*.png
+*.oga
+*.mp3
+
 # Byte-compiled / optimized / DLL files
 __pycache__/
 *.py[cod]
