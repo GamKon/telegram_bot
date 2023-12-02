@@ -13,6 +13,7 @@ from vit_base_patch32_384 import image_category_32_384
 from microsoft_phi_1_5 import chat_phi_1_5
 from facebook_wmt19_en_ru import facebook_wmt19_en_ru
 from runwayml_stable_diffusion_v1_5 import stable_diffusion_v1_5
+from openai_whisper_large_v3 import openai_whisper_large_v3
 
 load_dotenv()
 TELEGRAM_BOT_TOKEN=os.getenv('TELEGRAM_BOT_TOKEN')
@@ -22,6 +23,7 @@ logging.basicConfig(
     level=logging.INFO
 )
 
+custom_path = "image_category/"
 help_message = "I'm an AI bot, please talk to me or send me a picture!\nUse command /img _description_ to generate a photo"
 # Start command
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -62,6 +64,12 @@ async def image(update: Update, context: ContextTypes.DEFAULT_TYPE):
     ru_text     = facebook_wmt19_en_ru(en_text)
     await context.bot.send_message(chat_id=update.effective_chat.id, text=en_text + "\n" + ru_text)
 
+# Audio processing
+async def audio(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    new_file    = await update.message.effective_attachment.get_file()
+    file_path   = await new_file.download_to_drive()
+    await context.bot.send_message(chat_id=update.effective_chat.id, text=openai_whisper_large_v3(file_path))
+
 # Error message
 async def unknown(update: Update, context: ContextTypes.DEFAULT_TYPE):
     await context.bot.send_message(chat_id=update.effective_chat.id, text="Sorry, I didn't understand that command.\n" + help_message)
@@ -82,6 +90,9 @@ if __name__ == '__main__':
 
     image_handler   = MessageHandler(filters.PHOTO , image)
     application.add_handler(image_handler)
+
+    audio_handler   = MessageHandler(filters.VOICE , audio)
+    application.add_handler(audio_handler)
 
     # Other handlers
     unknown_handler = MessageHandler(filters.COMMAND, unknown)
