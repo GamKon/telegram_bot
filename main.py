@@ -14,6 +14,7 @@ from microsoft_phi_1_5 import chat_phi_1_5
 from facebook_wmt19 import facebook_wmt19_en_ru, facebook_wmt19_ru_en
 from runwayml_stable_diffusion_v1_5 import stable_diffusion_v1_5
 from openai_whisper_large_v3 import openai_whisper_large_v3
+from stabilityai_stable_diffusion_xl_base_1_0 import stable_diffusion_xl_base_1_0, stable_diffusion_xl_base_refiner_1_0
 
 # Load environment variables form .env
 load_dotenv()
@@ -42,12 +43,22 @@ async def help_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
 
 # /img command - Image generator
+# stable_diffusion_xl_base_1_0
 async def image_generation(update: Update, context: ContextTypes.DEFAULT_TYPE):
     description = " ".join(context.args)
-    generated_picture = stable_diffusion_v1_5(description, "generated_images")
+    generated_picture = stable_diffusion_xl_base_1_0(description, "generated_images")
+    await context.bot.send_photo(chat_id=update.effective_chat.id, photo=generated_picture)
+
+# /imgh command - Image generator using Enchancer
+# stable_diffusion_xl_base_refiner_1_0
+async def image_ench_generation(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    description = " ".join(context.args)
+    # Base + Enhancer. Very slow ~20 min.
+    generated_picture = stable_diffusion_xl_base_refiner_1_0(description, "generated_images")
     await context.bot.send_photo(chat_id=update.effective_chat.id, photo=generated_picture)
 
 # /imgr command - Russian description Image Generator
+# runwayml_stable_diffusion_v1_5
 # TODO merge these two defs into one. Use conditionals for en_ru / ru_en
 async def image_ru_generation(update: Update, context: ContextTypes.DEFAULT_TYPE):
     description = facebook_wmt19_ru_en(str(" ".join(context.args)))
@@ -121,7 +132,8 @@ if __name__ == '__main__':
 
     img_handler     = CommandHandler('img', image_generation)
     application.add_handler(img_handler)
-
+    img_handler     = CommandHandler('imgh', image_ench_generation)
+    application.add_handler(img_handler)
     img_ru_handler  = CommandHandler('imgr', image_ru_generation)
     application.add_handler(img_ru_handler)
 
