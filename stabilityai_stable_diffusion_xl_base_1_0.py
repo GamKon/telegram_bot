@@ -27,25 +27,29 @@ def stable_diffusion_xl_base_refiner_1_0(prompt, file_path):
     refiner.to("cuda")
 
     # Define how many steps and what % of steps to be run on each experts (80/20) here
-    n_steps = 40
-    high_noise_frac = 0.8
+    # n_steps = 40
+    # high_noise_frac = 0.8
 #    prompt = "A majestic lion jumping from a big stone at night"
 
     # ! Crashes here:
     # base.unet = torch.compile(base.unet, mode="reduce-overhead", fullgraph=True)
     # refiner.unet = torch.compile(refiner.unet, mode="reduce-overhead", fullgraph=True)
 
+    base_n_steps =20 #(20)
+    base_high_noise_frac = 0.8
+    refiner_n_steps = 20 #(6)
+    refiner_high_noise_frac = 0.8
     # run both experts
     image = base(
         prompt=prompt,
-        num_inference_steps=n_steps,
-        denoising_end=high_noise_frac,
+        num_inference_steps=base_n_steps,
+        denoising_end=base_high_noise_frac,
         output_type="latent",
     ).images
     image = refiner(
         prompt=prompt,
-        num_inference_steps=n_steps,
-        denoising_start=high_noise_frac,
+        num_inference_steps=refiner_n_steps,
+        denoising_start=refiner_high_noise_frac,
         image=image,
     ).images[0]
 
@@ -73,11 +77,11 @@ def stable_diffusion_xl_base_1_0(prompt, file_path):
     # prompt = "An astronaut riding a green horse"
 
     #high_noise_frac = 0.8
-    #n_steps = 48
+    n_steps = 90
 
     image = pipe(
         prompt=prompt,
-#        num_inference_steps=n_steps,
+        num_inference_steps=n_steps,
 #        denoising_end=high_noise_frac,
     ).images[0]
 
