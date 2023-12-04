@@ -9,15 +9,15 @@ from telegram import Update
 from telegram.ext import filters, MessageHandler, ApplicationBuilder, CommandHandler, ContextTypes
 
 # from vit_base_patch16_224 import image_category_16_224
-from vit_base_patch32_384 import image_category_32_384
-from microsoft_phi_1_5 import chat_phi_1_5
-from facebook_wmt19 import facebook_wmt19_en_ru, facebook_wmt19_ru_en
-# from runwayml_stable_diffusion_v1_5 import stable_diffusion_v1_5
-from openai_whisper_large_v3 import openai_whisper_large_v3
-from stabilityai_stable_diffusion_xl_base_1_0 import stable_diffusion_xl_base_1_0, stable_diffusion_xl_base_refiner_1_0
-# from stabilityai_sd_x2_latent_upscaler import sd_x2_latent_upscaler
-from stabilityai_stable_diffusion_x4_upscaler import stable_diffusion_x4_upscaler
-from TheBloke_Llama_2_13B_Chat_GPTQ import Llama_2_13B_chat_GPTQ
+from models.vit_base_patch32_384 import image_category_32_384
+from models.microsoft_phi_1_5 import chat_phi_1_5
+from models.facebook_wmt19 import facebook_wmt19_en_ru, facebook_wmt19_ru_en
+# from models.runwayml_stable_diffusion_v1_5 import stable_diffusion_v1_5
+from models.openai_whisper_large_v3 import openai_whisper_large_v3
+from models.stabilityai_stable_diffusion_xl_base_1_0 import stable_diffusion_xl_base_1_0, stable_diffusion_xl_base_refiner_1_0
+# from models.stabilityai_sd_x2_latent_upscaler import sd_x2_latent_upscaler
+from models.stabilityai_stable_diffusion_x4_upscaler import stable_diffusion_x4_upscaler
+from models.TheBloke_Llama_2_13B_Chat_GPTQ import Llama_2_13B_chat_GPTQ
 
 # Load environment variables form .env
 load_dotenv()
@@ -32,12 +32,14 @@ logging.basicConfig(
 
 # /start and /help commans
 help_message    =   "I'm an AI bot. Please send me:\n\
-- voice message to translate and transcript\n\
-- picture to 4x upscale and categorize.\n\
+- voice message to translate and transcript using openai/whisper-large-v3\n\
+- picture to 4x upscale with stabilityai/stable-diffusion-x4-upscaler and classify it with google/vit-base-patch32-384\n\
 Commands:\n\
-/img _description_ to generate a photo using runwayml/stable-diffusion-v1-5\n\
+/img _description_ to generate a photo using stabilityai/stable_diffusion_xl_base_1_0\n\
 /txt _description_ to generate a text with microsoft/phi-1_5\n\
-/imgr and /txtr for russian _description_"
+/t _question_ to chat with TheBloke/Llama-2-13B-Chat-GPTQ\n\
+/imgr, /txtr, /tr for ru_en and en_ru transparent translation using facebook/wmt19\n"
+
 
 async def help_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
     await context.bot.send_message(chat_id=update.effective_chat.id, text=help_message)

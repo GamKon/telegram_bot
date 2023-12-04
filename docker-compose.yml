@@ -1,0 +1,16 @@
+services:
+  tab:
+    image: tab
+    volumes:
+      - ${HOME}/.cache/huggingface:/root/.cache/huggingface
+#      - /:/container/path/lib/db
+    environment:
+      - NVIDIA_DRIVER_CAPABILITIES=compute,utility
+      - NVIDIA_VISIBLE_DEVICES=all
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: all # or device_ids: ['0', '3']
+              capabilities: [gpu]
