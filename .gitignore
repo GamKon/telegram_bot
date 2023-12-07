@@ -1,3 +1,6 @@
+# Environment variable files
+*.env
+
 # Media
 *.jpg
 *.png

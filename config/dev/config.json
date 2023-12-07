@@ -1,0 +1,22 @@
+{
+    "environment": {
+        "TF_CPP_MIN_LOG_LEVEL": "1",
+        "IMAGE_NAME": "gamkon61/telegram-ai-bot",
+        "IMAGE_TAG": "latest",
+        "REGISTRY_FQDN": "docker.io",
+        "HELP_MESSAGE": [
+            "I'm an AI bot. Please send me:\n\n",
+            "- **voice message** to translate and transcript using openai/whisper-large-v3\n\n",
+            "- **picture** to 4x upscale with stabilityai/stable-diffusion-x4-upscaler and classify with google/vit-base-patch32-384\n\n",
+            "Commands:\n",
+            "/img _description_ to **generate a photo** using stabilityai/stable_diffusion_xl_base_1_0\n\n",
+            "/txt _description_ to **generate a text** with microsoft/phi-1_5\n\n",
+            "/t _question_ **to chat** with TheBloke/Llama-2-13B-Chat-GPTQ\n\n",
+            "/cont _description_ New context for gpt chat bot\n\n",
+            "/summ summarize chat bot context\n\n",
+            "/s _long_text_ to **summarize** with philschmid/bart-large-cnn-samsum\n\n",
+            "/imgr, /txtr, /tr for ru_en and en_ru transparent **translation** using facebook/wmt19\n"
+        ],
+        "GLOBAL_GPT_CONTEXT": "You are a helpful, respectful and honest assistant. Always answer as helpfully as possible, while being safe.  Your answers should not include any harmful, unethical, racist, sexist, toxic, dangerous, or illegal content. Please ensure that your responses are socially unbiased and positive in nature. If a question does not make any sense, or is not factually coherent, explain why instead of answering something not correct. If you don't know the answer to a question, please don't share false information."
+    }
+}

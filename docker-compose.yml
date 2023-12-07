@@ -1,0 +1,20 @@
+services:
+  telegram-ai-bot:
+    image: "${REGISTRY_FQDN}/${IMAGE_NAME}:${IMAGE_TAG}"
+    restart: "unless-stopped"
+    container_name: telegram-ai-bot
+    volumes:
+      - ${MODELS_DIR}:/root/.cache/huggingface
+    environment:
+      - TELEGRAM_BOT_TOKEN
+      - HELP_MESSAGE
+      - GLOBAL_GPT_CONTEXT
+      - NVIDIA_DRIVER_CAPABILITIES=compute,utility
+      - NVIDIA_VISIBLE_DEVICES=all
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: all # or device_ids: ['0', '3']
+              capabilities: [gpu]

@@ -17,8 +17,3 @@ output = model.generate(
     max_new_tokens=100
 )
 print(tokenizer.decode(output[0], skip_special_tokens=True))
-
-# export PATH=$PATH:/home/gamkon/.local/lib/python3.10/site-packages/nvidia/cuda_runtime/lib/
-# export LD_LIBRARY_PATH=/home/gamkon/.local/lib/python3.10/site-packages/nvidia/cuda_runtime/lib/
-
-#CUDA exception! Error code: no CUDA-capable device is detected
