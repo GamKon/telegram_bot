@@ -1,0 +1,96 @@
+# dependencies:
+#   apk:
+#   apt:
+#   brew:
+#   gem:
+#   docker:
+#   custom:
+# forwards:
+
+actions:
+  app:
+    command: python3 main.py
+    load_secrets: true
+    description: Run the app
+
+# Docker
+  build:
+    command: docker build -t "$REGISTRY_FQDN/$IMAGE_NAME:$IMAGE_TAG" .
+    load_secrets: true
+    description: Build Docker image
+  push:
+    command: >-
+      echo "$REGISTRY_PUSH_PASSWORD" | docker login "${REGISTRY_FQDN}" --username "${REGISTRY_PUSH_USERNAME}" --password-stdin &&
+      docker push "${REGISTRY_FQDN}/${IMAGE_NAME}:${IMAGE_TAG}"
+    load_secrets: true
+    description: Docker login and push Docker image
+  build-push:
+    alias: bp
+    command: ops build && ops push
+    load_secrets: true
+    description: Build and Push Docker image
+  start:
+    command: docker compose up -d
+    load_secrets: true
+  stop:
+    command: docker compose down
+    load_secrets: true
+  restart:
+    command: docker compose restart
+    load_secrets: true
+  bounce:
+    command: ops stop; ops start
+    load_secrets: true
+  bounce-logs:
+    alias: bl
+    command: ops bounce && ops logs
+    load_secrets: true
+  status:
+    alias: ps
+    command: docker compose ps
+    load_secrets: true
+  logs:
+    alias: l
+    command: docker compose logs --follow --tail 100
+    load_secrets: true
+  start-with-logs:
+    alias: sl
+    command: ops start && ops logs
+    load_secrets: true
+  # exec:
+  #   command: docker compose exec telegram-ai-bot
+  shell:
+    command: docker compose exec telegram-ai-bot sh
+    load_secrets: true
+# Service telegram_ai_bot
+  service-restart:
+    alias: sr-restart
+    command: sudo supervisorctl restart telegram_ai_bot:*
+    description: Restart service telegram_ai_bot:*
+  service-stop:
+    alias: sr-stop
+    command: sudo supervisorctl stop telegram_ai_bot:*
+    description: Restart service telegram_ai_bot:*
+  service-status:
+    alias: sr-status
+    command: sudo supervisorctl status telegram_ai_bot:*
+    description: Get status of service telegram_ai_bot:*
+  service-log:
+    alias: sr-log
+    command: tail -f ${HOME}/log/telegram_ai_bot.log
+
+# Secrets
+  ejson-encrypt:
+    alias: encr
+    command: ejson encrypt config/*/secrets.ejson
+    description: Encrypt all secrets files in ./config/*
+  ejson-decrypt:
+    alias: decr
+    command: ejson decrypt config/${environment}/secrets.ejson
+    description: Decript secrets file of current environment
+
+options:
+  exec:
+    load_secrets: true
+  environment:
+    LD_LIBRARY_PATH: $HOME/.local/lib/python3.10/site-packages/nvidia/cudnn/lib:$HOME/.local/lib/python3.10/site-packages/tensorrt_libs/:$HOME/.local/lib/python3.10/site-packages/nvidia/cuda_runtime/lib

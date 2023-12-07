@@ -1,10 +1,14 @@
 services:
-  tab:
-    image: tab
+  telegram-ai-bot:
+    image: "${REGISTRY_FQDN}/${IMAGE_NAME}:${IMAGE_TAG}"
+    restart: "unless-stopped"
+    container_name: telegram-ai-bot
     volumes:
-      - ${HOME}/.cache/huggingface:/root/.cache/huggingface
-#      - /:/container/path/lib/db
+      - ${MODELS_DIR}:/root/.cache/huggingface
     environment:
+      - TELEGRAM_BOT_TOKEN
+      - HELP_MESSAGE
+      - GLOBAL_GPT_CONTEXT
       - NVIDIA_DRIVER_CAPABILITIES=compute,utility
       - NVIDIA_VISIBLE_DEVICES=all
     deploy:
