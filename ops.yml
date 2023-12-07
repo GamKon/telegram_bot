@@ -18,6 +18,9 @@ actions:
     command: docker build -t "$REGISTRY_FQDN/$IMAGE_NAME:$IMAGE_TAG" .
     load_secrets: true
     description: Build Docker image
+  build-start-log:
+    alias: bsl
+    command: ops build && ops start && ops logs
   push:
     command: >-
       echo "$REGISTRY_PUSH_PASSWORD" | docker login "${REGISTRY_FQDN}" --username "${REGISTRY_PUSH_USERNAME}" --password-stdin &&

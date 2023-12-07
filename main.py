@@ -106,15 +106,23 @@ async def image_ru_generation(update: Update, context: ContextTypes.DEFAULT_TYPE
 async def gpt(update: Update, context: ContextTypes.DEFAULT_TYPE):
     global GLOBAL_GPT_CONTEXT
     user_message = str(" ".join(context.args))
-    try:
-        gpt_answer = Llama_2_13B_chat_GPTQ(user_message, GLOBAL_GPT_CONTEXT)
-    except ValueError:
-        print("!!!!!!!!!!!!!!!!!!!-------------CRASH-------------!!!!!!!!!!!!!!!!!!!")
-        sleep(20)
-        gpt_answer = Llama_2_13B_chat_GPTQ(user_message, GLOBAL_GPT_CONTEXT)
+
+#   Handle crash happening most likely, not enought RAM
+    for i in range(1, 10):
+        try:
+            gpt_answer = Llama_2_13B_chat_GPTQ(user_message, GLOBAL_GPT_CONTEXT)
+            break
+        except ValueError:
+            print("!!!!!!!!!!!!!!!!!!!-------------CRASH-"+str(i)+"------------!!!!!!!!!!!!!!!!!!!")
+            await context.bot.send_message(chat_id=update.effective_chat.id, text="Crash, retrying "+str(i))
+            sleep(20)
+            #gpt_answer = Llama_2_13B_chat_GPTQ(user_message, GLOBAL_GPT_CONTEXT)
+    debug_print(gpt_answer)
+    print(gpt_answer)
     gpt_answer = str(gpt_answer.partition("[/INST]")[2])
 #    debug_print("gpt_answer: "+gpt_answer)
     # Split output by 4096 symbols
+
     answers = [gpt_answer[i:i + 4096] for i in range(0, len(gpt_answer), 4096)]
     for answer in answers:
         await context.bot.send_message(chat_id=update.effective_chat.id, text=answer)
