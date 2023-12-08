@@ -23,25 +23,25 @@ from models.TheBloke_Llama_2_13B_Chat_GPTQ import Llama_2_13B_chat_GPTQ
 from models.philschmid_bart_large_cnn_samsum import bart_large_cnn_samsum
 
 # split to sentances
-from split_into_sentences import split_into_sentences
+#from split_into_sentences import split_into_sentences
 
 # Needs nltk
 #from nltk import tokenize
 # nltk.download('punkt')
 
 global GLOBAL_GPT_CONTEXT
-GLOBAL_GPT_CONTEXT = " "
+GLOBAL_GPT_CONTEXT = []
 
 
-def summarize_context(chat_history):
-    print("\n--------------------------------------------\n")
-    sentences_list = split_into_sentences(chat_history)
-    print(sentences_list)
-    print("\n--------------------------------------------\n")
-    unic_sentences_list = list(dict.fromkeys(sentences_list))
-    print(unic_sentences_list)
-    print("\n--------------------------------------------\n")
-    return unic_sentences_list
+# def summarize_context(chat_history):
+#     print("\n--------------------------------------------\n")
+#     sentences_list = split_into_sentences(chat_history)
+#     print(sentences_list)
+#     print("\n--------------------------------------------\n")
+#     unic_sentences_list = list(dict.fromkeys(sentences_list))
+#     print(unic_sentences_list)
+#     print("\n--------------------------------------------\n")
+#     return unic_sentences_list
 
 # -----------------------------------------------------------------------------------------
 # Command handlers
@@ -51,7 +51,7 @@ def summarize_context(chat_history):
 # Reset GLOBAL_GPT_CONTEXT and print help_message
 async def help_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
     global GLOBAL_GPT_CONTEXT
-    GLOBAL_GPT_CONTEXT = os.getenv('GLOBAL_GPT_CONTEXT')
+    GLOBAL_GPT_CONTEXT = [{}]
     await context.bot.send_message(chat_id=update.effective_chat.id, text=HELP_MESSAGE)
 
 # /img command - Image generator
@@ -105,31 +105,73 @@ async def image_ru_generation(update: Update, context: ContextTypes.DEFAULT_TYPE
 # /t command - Chat
 async def gpt(update: Update, context: ContextTypes.DEFAULT_TYPE):
     global GLOBAL_GPT_CONTEXT
-    user_message = str(" ".join(context.args))
+    summarize_depth = 4
+#    debug_print("Length: "+str(len(GLOBAL_GPT_CONTEXT)))
 
-#   Handle crash happening most likely, not enought RAM
+# Construct context
+    context_string = " "
+    if len(GLOBAL_GPT_CONTEXT) > 0 :
+        for i in range(len(GLOBAL_GPT_CONTEXT)):
+            context_string = context_string + (GLOBAL_GPT_CONTEXT[i]['question']+" "+GLOBAL_GPT_CONTEXT[i]['answer'])
+#    debug_print("Context BEFORE the answer - context_string:\n"+context_string)
+
+    #context_string = (GLOBAL_GPT_CONTEXT.question[i]+" "+GLOBAL_GPT_CONTEXT.answer[i]): for i in range(2)  e() (,len(GLOBAL_GPT_CONTEXT))
+    #debug_print("Context BEFORE the answer:\n"+str(" ".join(GLOBAL_GPT_CONTEXT)))
+
+# Get question
+    user_prompt = str(" ".join(context.args))
+
+# Ask Llama
+    # Handle crash happening most likely, not enought RAM
     for i in range(1, 10):
         try:
-            gpt_answer = Llama_2_13B_chat_GPTQ(user_message, GLOBAL_GPT_CONTEXT)
+            gpt_answer = Llama_2_13B_chat_GPTQ(user_prompt, context_string, str(os.getenv('INITIAL_GPT_CONTEXT')))
             break
         except ValueError:
             print("!!!!!!!!!!!!!!!!!!!-------------CRASH-"+str(i)+"------------!!!!!!!!!!!!!!!!!!!")
             await context.bot.send_message(chat_id=update.effective_chat.id, text="Crash, retrying "+str(i))
-            sleep(20)
-            #gpt_answer = Llama_2_13B_chat_GPTQ(user_message, GLOBAL_GPT_CONTEXT)
-    debug_print(gpt_answer)
-    print(gpt_answer)
-    gpt_answer = str(gpt_answer.partition("[/INST]")[2])
-#    debug_print("gpt_answer: "+gpt_answer)
-    # Split output by 4096 symbols
+            sleep(10)
 
-    answers = [gpt_answer[i:i + 4096] for i in range(0, len(gpt_answer), 4096)]
-    for answer in answers:
-        await context.bot.send_message(chat_id=update.effective_chat.id, text=answer)
+#    debug_print("RAW Llama answer: "+gpt_answer)
+
+    gpt_answer = str(gpt_answer.partition("[/INST]")[2])
+#    debug_print("Crop gpt_answer: "+gpt_answer)
+
+    # Split output by 4096 symbols
+    # answers = [gpt_answer[i:i + 4096] for i in range(len(gpt_answer), 4096)]
+    # for answer in answers:
+# Sent answer to the chat
+    await context.bot.send_message(chat_id=update.effective_chat.id, text=str(len(GLOBAL_GPT_CONTEXT))+" "+gpt_answer)
+
+# Save question and answer to list of dictionaries
+    GLOBAL_GPT_CONTEXT.append({"question": user_prompt, "answer": gpt_answer})
+#    debug_print("Context AFTER the answer - debug_context_string:\n"+str(GLOBAL_GPT_CONTEXT))
+    debug_print("Context AFTER the answer: "+str(len(GLOBAL_GPT_CONTEXT))+"\n"+json.dumps(GLOBAL_GPT_CONTEXT, indent=4))
+
+# Summarize [summarize_depth] answer
+    if len(GLOBAL_GPT_CONTEXT) >= summarize_depth :
+    #    print(len(str(GLOBAL_GPT_CONTEXT[len(GLOBAL_GPT_CONTEXT)-summarize_depth]['answer'])))
+        summarized_answer = bart_large_cnn_samsum(str(GLOBAL_GPT_CONTEXT[len(GLOBAL_GPT_CONTEXT)-summarize_depth]['answer']))
+        debug_print("BEFORE summarizing: "+str(len(str(GLOBAL_GPT_CONTEXT[len(GLOBAL_GPT_CONTEXT)-summarize_depth]['answer'])))+"\n"+str(GLOBAL_GPT_CONTEXT[len(GLOBAL_GPT_CONTEXT)-summarize_depth]['answer']))
+        await context.bot.send_message(chat_id=update.effective_chat.id, text=str(len(str(GLOBAL_GPT_CONTEXT[len(GLOBAL_GPT_CONTEXT)-summarize_depth]['answer']))))
+        debug_print("AFTER summarizing:\n"+summarized_answer)
+        GLOBAL_GPT_CONTEXT[len(GLOBAL_GPT_CONTEXT)-summarize_depth]['answer'] = summarized_answer
+        debug_print("Context AFTER Summarizing: "+str(len(str(GLOBAL_GPT_CONTEXT[len(GLOBAL_GPT_CONTEXT)-summarize_depth]['answer'])))+"\n"+json.dumps(GLOBAL_GPT_CONTEXT, indent=4))
+        await context.bot.send_message(chat_id=update.effective_chat.id, text=str(len(str(GLOBAL_GPT_CONTEXT[len(GLOBAL_GPT_CONTEXT)-summarize_depth]['answer']))))
+
+    # if len(GLOBAL_GPT_CONTEXT) > 0 :
+    #     for i in range(len(GLOBAL_GPT_CONTEXT)):
+    #         debug_context_string = (GLOBAL_GPT_CONTEXT[i]['question']+" "+GLOBAL_GPT_CONTEXT[i]['answer'])
+    # else:
+    #     debug_context_string = " "
+    # debug_print("Context AFTER the answer - debug_context_string:\n"+debug_context_string)
+
 #    GLOBAL_GPT_CONTEXT = GLOBAL_GPT_CONTEXT.split("[/INST]")[0]
-    GLOBAL_GPT_CONTEXT = str(GLOBAL_GPT_CONTEXT.split("[/INST]")[0]) + " " + user_message + gpt_answer
-    GLOBAL_GPT_CONTEXT = " ".join(summarize_context(GLOBAL_GPT_CONTEXT))
-#    debug_print("New GLOBAL_GPT_CONTEXT: "+GLOBAL_GPT_CONTEXT)
+#    GLOBAL_GPT_CONTEXT = str(GLOBAL_GPT_CONTEXT.split("[/INST]")[0]) + " " + user_message + gpt_answer
+#    debug_print("Context AFTER the answer:\n"+GLOBAL_GPT_CONTEXT)
+#    GLOBAL_GPT_CONTEXT = " ".join(summarize_context(GLOBAL_GPT_CONTEXT))
+#    GLOBAL_GPT_CONTEXT = bart_large_cnn_samsum(GLOBAL_GPT_CONTEXT)
+#    debug_print("Context after SUMMARIZING:\n"+GLOBAL_GPT_CONTEXT)
 
 # /tr command - Chat via russian Translator
 async def gpt_ru(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -151,11 +193,11 @@ async def gpt_ru(update: Update, context: ContextTypes.DEFAULT_TYPE):
     for answer in answers:
         await context.bot.send_message(chat_id=update.effective_chat.id, text=answer)
 
-# /cont command - sets start context from input
-async def new_gpt_context(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    global GLOBAL_GPT_CONTEXT
-    GLOBAL_GPT_CONTEXT = str(" ".join(context.args))
-    await context.bot.send_message(chat_id=update.effective_chat.id, text="New context is:\n"+GLOBAL_GPT_CONTEXT)
+# # /cont command - sets start context from input
+# async def new_gpt_context(update: Update, context: ContextTypes.DEFAULT_TYPE):
+#     global GLOBAL_GPT_CONTEXT
+#     GLOBAL_GPT_CONTEXT = str(" ".join(context.args))
+#     await context.bot.send_message(chat_id=update.effective_chat.id, text="New context is:\n"+GLOBAL_GPT_CONTEXT)
 
 
 # /txt command - Text Generator + Translator
@@ -201,10 +243,10 @@ async def summarize_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
     summary = bart_large_cnn_samsum(user_message)
     await context.bot.send_message(chat_id=update.effective_chat.id, text="Summary of message:\n"+summary)
 
-async def summarize_gpt_context(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    global GLOBAL_GPT_CONTEXT
-    GLOBAL_GPT_CONTEXT = bart_large_cnn_samsum(GLOBAL_GPT_CONTEXT)
-    await context.bot.send_message(chat_id=update.effective_chat.id, text="Summary of chat history:\n"+GLOBAL_GPT_CONTEXT)
+# async def summarize_gpt_context(update: Update, context: ContextTypes.DEFAULT_TYPE):
+#     global GLOBAL_GPT_CONTEXT
+#     GLOBAL_GPT_CONTEXT = bart_large_cnn_samsum(GLOBAL_GPT_CONTEXT)
+#     await context.bot.send_message(chat_id=update.effective_chat.id, text="Summary of chat history:\n"+GLOBAL_GPT_CONTEXT)
 
 
 # Image classificator and 2x Upscaler
@@ -286,13 +328,13 @@ if __name__ == '__main__':
     audio_handler   = MessageHandler(filters.VOICE , voice_trans)
     application.add_handler(audio_handler)
 
-    new_context_handler         = CommandHandler('cont', new_gpt_context)
-    application.add_handler(new_context_handler)
+    # new_context_handler         = CommandHandler('cont', new_gpt_context)
+    # application.add_handler(new_context_handler)
 
     summarize_message_handler   = CommandHandler('s',summarize_message)
     application.add_handler(summarize_message_handler)
-    summarize_context_handler   = CommandHandler('summ',summarize_gpt_context)
-    application.add_handler(summarize_context_handler)
+    # summarize_context_handler   = CommandHandler('summ',summarize_gpt_context)
+    # application.add_handler(summarize_context_handler)
 
     # Other handlers
     unknown_handler = MessageHandler(filters.COMMAND, error)

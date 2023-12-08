@@ -1,8 +1,9 @@
 # https://huggingface.co/TheBloke/Llama-2-13B-Chat-GPTQ
 
+import os
 from transformers import AutoModelForCausalLM, AutoTokenizer, pipeline
 
-def Llama_2_13B_chat_GPTQ(prompt, context):
+def Llama_2_13B_chat_GPTQ(user_prompt, context, initial_context):
     model_name_or_path = "TheBloke/Llama-2-13B-chat-GPTQ"
     # To use a different branch, change revision
     # For example: revision="main"
@@ -26,12 +27,12 @@ def Llama_2_13B_chat_GPTQ(prompt, context):
     # {prompt}[/INST]
     # '''
 
-    prompt_template=f'''[INST] <<SYS>>
-    {context}
-    <</SYS>>
-    {prompt}[/INST]
+    prompt_template=f'''[INST] <<SYS>>{initial_context} {context}<</SYS>>
+    {user_prompt}[/INST]
     '''
-
+    print("----------------------------------------------prompt to AI-----------------------------------------------------")
+    print(prompt_template)
+    print("---------------------------------------------------------------------------------------------------------------")
     # # print("\n\n*** Generate:")
     # input_ids = tokenizer(prompt_template, return_tensors='pt').input_ids.cuda()
     # output = model.generate(
