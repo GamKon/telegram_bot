@@ -8,7 +8,7 @@ COPY requirements.txt .
 # Install the dependencies
 RUN pip install -r requirements.txt
 
-# Create directoryes for media files
+# Create directories for media files
 RUN mkdir -p /app/generated_images
 RUN mkdir -p /app/images
 RUN mkdir -p /app/voice
@@ -17,6 +17,9 @@ RUN mkdir -p /app/voice
 COPY ./models/*.py ./models/
 COPY ./*.py ./
 
+# Create dir for storing models
+RUN mkdir /root/.cache/huggingface
+
 # Run the application
-CMD ["python", "main.py"]
-#ENTRYPOINT ["tail", "-f", "/dev/null"]
+#CMD ["python", "main.py"]
+ENTRYPOINT ["tail", "-f", "/dev/null"]

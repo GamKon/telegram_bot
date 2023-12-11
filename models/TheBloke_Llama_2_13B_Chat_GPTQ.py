@@ -14,6 +14,12 @@ def Llama_2_13B_chat_GPTQ(user_prompt, context, initial_context):
 
     tokenizer = AutoTokenizer.from_pretrained(model_name_or_path, use_fast=True)
 
+# Error
+# RuntimeError: The temp_state buffer is too small in the exllama backend for GPTQ with act-order. Please call the exllama_set_max_input_length function to increase the buffer size for a sequence length >=2081:
+# from auto_gptq import exllama_set_max_input_length
+# model = exllama_set_max_input_length(model, max_input_length=2081)
+
+
     # prompt = "Tell me about AI"
 
     # Old context
@@ -27,9 +33,7 @@ def Llama_2_13B_chat_GPTQ(user_prompt, context, initial_context):
     # {prompt}[/INST]
     # '''
 
-    prompt_template=f'''[INST] <<SYS>>{initial_context} {context}<</SYS>>
-    {user_prompt}[/INST]
-    '''
+    prompt_template=f'''[INST]<<SYS>>{initial_context} {context}<</SYS>>{user_prompt}[/INST]'''
     print("----------------------------------------------prompt to AI-----------------------------------------------------")
     print(prompt_template)
     print("---------------------------------------------------------------------------------------------------------------")

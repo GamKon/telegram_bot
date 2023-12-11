@@ -94,38 +94,55 @@ async def image_refine_generation(update: Update, context: ContextTypes.DEFAULT_
 # /imgr command - Russian description Image Generator
 # runwayml_stable_diffusion_v1_5
 async def image_ru_generation(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    description = " ".join(context.args)
-
-    # description = facebook_wmt19_ru_en(description)
+    try:
+        num_inference_steps = int(context.args[0])
+        context.args.pop(0)
+    except ValueError:
+        num_inference_steps = 50
+    description_ru = " ".join(context.args)
+    description = facebook_wmt19_ru_en(description_ru)
     # debug_print("description after ru_en translation: "+description)
-    #generated_picture = stable_diffusion_xl_base_1_0(description, "generated_images")
-    generated_picture = stable_diffusion_v1_5(description, "generated_images")
-    await context.bot.send_photo(chat_id=update.effective_chat.id, photo=generated_picture, caption=description)
+    #generated_picture = stable_diffusion_v1_5(description, "generated_images")
+    generated_picture = stable_diffusion_xl_base_1_0(description, "generated_images", num_inference_steps)
+    await context.bot.send_photo(chat_id=update.effective_chat.id, photo=generated_picture, caption=description_ru+"\n"+description)
+
+def construct_context_string(GLOBAL_GPT_CONTEXT):
+# Construct context from history
+    context_string = " "
+    if len(GLOBAL_GPT_CONTEXT) > 0 :
+        for i in range(len(GLOBAL_GPT_CONTEXT)):
+            context_string = context_string + (GLOBAL_GPT_CONTEXT[i]['question']+" "+GLOBAL_GPT_CONTEXT[i]['answer'])
+    return context_string
+
+def count_words_in_string(string):
+    return len(string.split())
 
 # /t command - Chat
 async def gpt(update: Update, context: ContextTypes.DEFAULT_TYPE):
     global GLOBAL_GPT_CONTEXT
     summarize_depth = 4
-#    debug_print("Length: "+str(len(GLOBAL_GPT_CONTEXT)))
-
-# Construct context
-    context_string = " "
-    if len(GLOBAL_GPT_CONTEXT) > 0 :
-        for i in range(len(GLOBAL_GPT_CONTEXT)):
-            context_string = context_string + (GLOBAL_GPT_CONTEXT[i]['question']+" "+GLOBAL_GPT_CONTEXT[i]['answer'])
-#    debug_print("Context BEFORE the answer - context_string:\n"+context_string)
-
-    #context_string = (GLOBAL_GPT_CONTEXT.question[i]+" "+GLOBAL_GPT_CONTEXT.answer[i]): for i in range(2)  e() (,len(GLOBAL_GPT_CONTEXT))
-    #debug_print("Context BEFORE the answer:\n"+str(" ".join(GLOBAL_GPT_CONTEXT)))
-
 # Get question
     user_prompt = str(" ".join(context.args))
+# Construct context from history
+    context_string = construct_context_string(GLOBAL_GPT_CONTEXT)
+
+# Cut old history if whole string to sent is longer than
+    # To increase temp_state buffer:
+    # from auto_gptq import exllama_set_max_input_length
+    # model = exllama_set_max_input_length(model, max_input_length=xxxx)
+
+    while len((user_prompt+context_string+str(os.getenv('INITIAL_CONTEXT'))).split())+4 > 2048:
+        GLOBAL_GPT_CONTEXT.pop(0)
+        debug_print("POP oldest record")
+        await context.bot.send_message(chat_id=update.effective_chat.id, text="POP oldest record")
+        context_string = construct_context_string(GLOBAL_GPT_CONTEXT)
+
 
 # Ask Llama
     # Handle crash happening most likely, not enought RAM
     for i in range(1, 10):
         try:
-            gpt_answer = Llama_2_13B_chat_GPTQ(user_prompt, context_string, str(os.getenv('INITIAL_GPT_CONTEXT')))
+            gpt_answer = Llama_2_13B_chat_GPTQ(user_prompt, context_string, str(os.getenv('INITIAL_CONTEXT')))
             break
         except ValueError:
             print("!!!!!!!!!!!!!!!!!!!-------------CRASH-"+str(i)+"------------!!!!!!!!!!!!!!!!!!!")
@@ -149,7 +166,7 @@ async def gpt(update: Update, context: ContextTypes.DEFAULT_TYPE):
     debug_print("Context AFTER the answer: "+str(len(GLOBAL_GPT_CONTEXT))+"\n"+json.dumps(GLOBAL_GPT_CONTEXT, indent=4))
 
 # Summarize [summarize_depth] answer
-    if len(GLOBAL_GPT_CONTEXT) >= summarize_depth :
+    if len(GLOBAL_GPT_CONTEXT) >= summarize_depth and len(GLOBAL_GPT_CONTEXT[len(GLOBAL_GPT_CONTEXT)-summarize_depth]['answer']) > 100 :
     #    print(len(str(GLOBAL_GPT_CONTEXT[len(GLOBAL_GPT_CONTEXT)-summarize_depth]['answer'])))
         summarized_answer = bart_large_cnn_samsum(str(GLOBAL_GPT_CONTEXT[len(GLOBAL_GPT_CONTEXT)-summarize_depth]['answer']))
         debug_print("BEFORE summarizing: "+str(len(str(GLOBAL_GPT_CONTEXT[len(GLOBAL_GPT_CONTEXT)-summarize_depth]['answer'])))+"\n"+str(GLOBAL_GPT_CONTEXT[len(GLOBAL_GPT_CONTEXT)-summarize_depth]['answer']))
@@ -287,7 +304,7 @@ def debug_print(to_print):
 if __name__ == '__main__':
 
 # Variables ------------------------------------------------------------------------------
-    HELP_MESSAGE        = "".join(json.loads(os.getenv('HELP_MESSAGE')))
+    HELP_MESSAGE        = os.getenv('HELP_MESSAGE')
     TELEGRAM_BOT_TOKEN  = os.getenv('TELEGRAM_BOT_TOKEN')
 
     # Set up logging module to monitor Telegram
