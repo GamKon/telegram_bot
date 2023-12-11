@@ -8,7 +8,7 @@ services:
     environment:
       - TELEGRAM_BOT_TOKEN
       - HELP_MESSAGE
-      - INITIAL_CONTEXT
+      - INITIAL_PROMPT
       - NVIDIA_DRIVER_CAPABILITIES=compute,utility
       - NVIDIA_VISIBLE_DEVICES=all
     deploy:

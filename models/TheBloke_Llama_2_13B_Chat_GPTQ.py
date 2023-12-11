@@ -3,7 +3,7 @@
 import os
 from transformers import AutoModelForCausalLM, AutoTokenizer, pipeline
 
-def Llama_2_13B_chat_GPTQ(user_prompt, context, initial_context):
+def Llama_2_13B_chat_GPTQ(user_prompt, context, initial_prompt):
     model_name_or_path = "TheBloke/Llama-2-13B-chat-GPTQ"
     # To use a different branch, change revision
     # For example: revision="main"
@@ -33,7 +33,7 @@ def Llama_2_13B_chat_GPTQ(user_prompt, context, initial_context):
     # {prompt}[/INST]
     # '''
 
-    prompt_template=f'''[INST]<<SYS>>{initial_context} {context}<</SYS>>{user_prompt}[/INST]'''
+    prompt_template=f'''[INST]<<SYS>>{initial_prompt} {context}<</SYS>>{user_prompt}[/INST]'''
     print("----------------------------------------------prompt to AI-----------------------------------------------------")
     print(prompt_template)
     print("---------------------------------------------------------------------------------------------------------------")
