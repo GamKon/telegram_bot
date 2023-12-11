@@ -5,6 +5,7 @@ services:
     container_name: telegram-ai-bot
     volumes:
       - ${MODELS_DIR}:/root/.cache/huggingface
+      - ${APP_DATA_DIR}:/app/data
     environment:
       - TELEGRAM_BOT_TOKEN
       - HELP_MESSAGE

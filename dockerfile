@@ -9,9 +9,10 @@ COPY requirements.txt .
 RUN pip install -r requirements.txt
 
 # Create directories for media files
-RUN mkdir -p /app/generated_images
-RUN mkdir -p /app/images
-RUN mkdir -p /app/voice
+RUN mkdir -p /app/data/generated_images
+RUN mkdir -p /app/data/images
+RUN mkdir -p /app/data/voice
+RUN mkdir -p /app/data/chat
 
 # Copy the application code
 COPY ./models/*.py ./models/

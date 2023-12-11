@@ -5,7 +5,7 @@ import shutil
 from time import sleep
 
 from telegram import Update
-from telegram.ext import filters, MessageHandler, ApplicationBuilder, CommandHandler, ContextTypes
+from telegram.ext import filters, MessageHandler, ApplicationBuilder, CommandHandler, ContextTypes, PicklePersistence
 
 # from vit_base_patch16_224 import image_category_16_224
 from models.vit_base_patch32_384 import image_category_32_384
@@ -18,36 +18,11 @@ from models.stabilityai_stable_diffusion_x4_upscaler import stable_diffusion_x4_
 from models.TheBloke_Llama_2_13B_Chat_GPTQ import Llama_2_13B_chat_GPTQ
 from models.philschmid_bart_large_cnn_samsum import bart_large_cnn_samsum
 
-# Some ways to split text to sentences
-# Split to sentences
-# from split_into_sentences import split_into_sentences
-# Needs nltk
-# from nltk import tokenize
-# nltk.download('punkt')
-
-# Some ways to split text to sentences
-# def summarize_context(chat_history):
-#     print("\n--------------------------------------------\n")
-#     sentences_list = split_into_sentences(chat_history)
-#     print(sentences_list)
-#     print("\n--------------------------------------------\n")
-#     unic_sentences_list = list(dict.fromkeys(sentences_list))
-#     print(unic_sentences_list)
-#     print("\n--------------------------------------------\n")
-#     return unic_sentences_list
-
-
 # -----------------------------------------------------------------------------------------
 # Command handlers
 # -----------------------------------------------------------------------------------------
-
 # /start and /help commans
 # Print HELP_MESSAGE
-async def help_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    await context.bot.send_message(chat_id=update.effective_chat.id, text=HELP_MESSAGE)
-
-# /start and /help commans
-# Reset chat context and print HELP_MESSAGE
 async def help_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
     await context.bot.send_message(chat_id=update.effective_chat.id, text=HELP_MESSAGE)
 
@@ -66,13 +41,13 @@ async def image_generation(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     description = " ".join(context.args)
 
-    generated_picture = stable_diffusion_xl_base_1_0(description, "generated_images", num_inference_steps)
+    generated_picture = stable_diffusion_xl_base_1_0(description, "data/generated_images", num_inference_steps)
     await context.bot.send_photo(chat_id=update.effective_chat.id, photo=generated_picture, caption=description)
 
-# Experiment to see picture after each iteration
-    # for iteration in range(1, num_inference_steps):
-    #     generated_picture = stable_diffusion_xl_base_1_0(description, "generated_images", iteration)
-    #     await context.bot.send_photo(chat_id=update.effective_chat.id, photo=generated_picture, caption=str(iteration)+" -- "+description)
+    # Experiment to see picture after each iteration
+        # for iteration in range(1, num_inference_steps):
+        #     generated_picture = stable_diffusion_xl_base_1_0(description, "data/generated_images", iteration)
+        #     await context.bot.send_photo(chat_id=update.effective_chat.id, photo=generated_picture, caption=str(iteration)+" -- "+description)
 
 # -----------------------------------------------------------------------------------------
 # /imgh command - Image generator with added Refiner
@@ -87,7 +62,7 @@ async def image_refine_generation(update: Update, context: ContextTypes.DEFAULT_
 
     description = " ".join(context.args)
 
-    generated_picture = stable_diffusion_xl_base_refiner_1_0(description, "generated_images", num_inference_steps)
+    generated_picture = stable_diffusion_xl_base_refiner_1_0(description, "data/generated_images", num_inference_steps)
     await context.bot.send_photo(chat_id=update.effective_chat.id, photo=generated_picture, caption=description)
 
 # -----------------------------------------------------------------------------------------
@@ -104,7 +79,7 @@ async def image_ru_generation(update: Update, context: ContextTypes.DEFAULT_TYPE
     description_ru = " ".join(context.args)
     description = facebook_wmt19_ru_en(description_ru)
 
-    generated_picture = stable_diffusion_xl_base_1_0(description, "generated_images", num_inference_steps)
+    generated_picture = stable_diffusion_xl_base_1_0(description, "data/generated_images", num_inference_steps)
     await context.bot.send_photo(chat_id=update.effective_chat.id, photo=generated_picture, caption=description_ru+"\n"+description_ru)
 
 
@@ -241,7 +216,10 @@ async def echo_ru(update: Update, context: ContextTypes.DEFAULT_TYPE):
 async def new_initial_prompt(update: Update, context: ContextTypes.DEFAULT_TYPE):
     os.environ['INITIAL_PROMPT'] = str(" ".join(context.args))
     await context.bot.send_message(chat_id=update.effective_chat.id, text="New INITIAL_PROMPT:\n"+os.getenv('INITIAL_PROMPT'))
-
+# /reset chat context and print HELP_MESSAGE
+async def reset_initial_prompt(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    context.user_data["chat_history"] = []
+    await context.bot.send_message(chat_id=update.effective_chat.id, text="Chat reset!\n"+HELP_MESSAGE)
 # -----------------------------------------------------------------------------------------
 # /s Summarize user message with bart_large_cnn_samsum
 # -----------------------------------------------------------------------------------------
@@ -257,7 +235,7 @@ async def summarize_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
 async def photo_classification(update: Update, context: ContextTypes.DEFAULT_TYPE):
     new_file    = await update.message.effective_attachment[-1].get_file()
     file_name   = new_file.file_path.split("/")[-1]
-    file_path   = await new_file.download_to_drive(custom_path="images/"+file_name)
+    file_path   = await new_file.download_to_drive(custom_path="data/images/"+file_name)
     description = image_category_32_384(file_path)
     en_text     = "Most likely it's " + description
     ru_text     = facebook_wmt19_en_ru(en_text)
@@ -275,7 +253,7 @@ async def voice_transcribe(update: Update, context: ContextTypes.DEFAULT_TYPE):
     file_name   = new_file.file_path.split("/")[-1]
     while True:
         try:
-            file_path   = await new_file.download_to_drive(custom_path="voice/"+file_name)
+            file_path   = await new_file.download_to_drive(custom_path="data/voice/"+file_name)
             break
         except shutil.SameFileError:
             # TODO parse file_name for better making unic name
@@ -294,19 +272,13 @@ def debug_print(to_print):
 if __name__ == '__main__':
 
     # Create a persistence object
-    #bot_persistence = PicklePersistence(filepath='bot')
+    bot_persistence = PicklePersistence(filepath='data/chat/chat_history')
 
 # Variables ------------------------------------------------------------------------------
     HELP_MESSAGE        = os.getenv('HELP_MESSAGE')
     TELEGRAM_BOT_TOKEN  = os.getenv('TELEGRAM_BOT_TOKEN')
 
-    # Set up logging module to monitor Telegram
-    # logging.basicConfig(
-    #     format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
-    #     level=logging.INFO
-    # )
-
-    application     = ApplicationBuilder().token(TELEGRAM_BOT_TOKEN).build()
+    application     = ApplicationBuilder().token(TELEGRAM_BOT_TOKEN).persistence(persistence=bot_persistence).build()
 
     start_handler   = CommandHandler('start', help_command)
     application.add_handler(start_handler)
@@ -334,7 +306,10 @@ if __name__ == '__main__':
     echo_ru_handler = CommandHandler('txtr', echo_ru)
     application.add_handler(echo_ru_handler)
 
-    reset_context_handler     = CommandHandler('init', new_initial_prompt)
+    new_context_handler     = CommandHandler('init', new_initial_prompt)
+    application.add_handler(new_context_handler)
+
+    reset_context_handler     = CommandHandler('reset', reset_initial_prompt)
     application.add_handler(reset_context_handler)
 
     summarize_message_handler = CommandHandler('s',summarize_message)
@@ -344,7 +319,7 @@ if __name__ == '__main__':
     audio_handler   = MessageHandler(filters.VOICE , voice_transcribe)
     application.add_handler(audio_handler)
 
-    # Other handlers
+# Other handlers
     unknown_handler = MessageHandler(filters.COMMAND, error)
     application.add_handler(unknown_handler)
 
