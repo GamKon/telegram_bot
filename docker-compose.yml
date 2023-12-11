@@ -5,10 +5,11 @@ services:
     container_name: telegram-ai-bot
     volumes:
       - ${MODELS_DIR}:/root/.cache/huggingface
+      - ${APP_DATA_DIR}:/app/data
     environment:
       - TELEGRAM_BOT_TOKEN
       - HELP_MESSAGE
-      - GLOBAL_GPT_CONTEXT
+      - INITIAL_PROMPT
       - NVIDIA_DRIVER_CAPABILITIES=compute,utility
       - NVIDIA_VISIBLE_DEVICES=all
     deploy:
