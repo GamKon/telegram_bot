@@ -21,6 +21,9 @@ actions:
   build-start-log:
     alias: bsl
     command: ops build && ops start && ops logs
+  build-start-shell:
+    alias: bss
+    command: ops build && ops start && ops shell
   push:
     command: >-
       echo "$REGISTRY_PUSH_PASSWORD" | docker login "${REGISTRY_FQDN}" --username "${REGISTRY_PUSH_USERNAME}" --password-stdin &&
@@ -60,11 +63,12 @@ actions:
     alias: sl
     command: ops start && ops logs
     load_secrets: true
-  # exec:
-  #   command: docker compose exec telegram-ai-bot
+  execute:
+    command: docker compose exec telegram-ai-bot
   shell:
     command: docker compose exec telegram-ai-bot sh
     load_secrets: true
+
 # Service telegram_ai_bot
   service-restart:
     alias: sr-restart
@@ -96,4 +100,4 @@ options:
   exec:
     load_secrets: true
   environment:
-    LD_LIBRARY_PATH: $HOME/.local/lib/python3.10/site-packages/nvidia/cudnn/lib:$HOME/.local/lib/python3.10/site-packages/tensorrt_libs/:$HOME/.local/lib/python3.10/site-packages/nvidia/cuda_runtime/lib
+    LD_LIBRARY_PATH: /home/gamkon/.local/lib/python3.10/site-packages/nvidia/cudnn/lib:/home/gamkon/.local/lib/python3.10/site-packages/tensorrt_libs/:/home/gamkon/.local/lib/python3.10/site-packages/nvidia/cuda_runtime/lib:/home/gamkon/.local/lib/python3.10/site-packages/tensorrt:/home/gamkon/.local/lib/python3.10/site-packages/tensorrt_bindings

@@ -6,3 +6,4 @@ einops # for chat_phi_1_5
 sacremoses # to use XLMTokenizer
 optimum
 auto-gptq
+emoji

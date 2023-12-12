@@ -1,5 +1,17 @@
 FROM pytorch/pytorch:latest AS telegram-ai-bot
 
+
+# install tools
+# RUN apt-get update && apt-get install --assume-yes \
+#     nvtop \
+#     unzip
+
+# RUN rm -rf /usr/lib/x86_64-linux-gnu/libnvidia-*.so* \
+#            /usr/lib/x86_64-linux-gnu/libcuda.so*
+#     /usr/lib/x86_64-linux-gnu/libnvcuvid.so* \
+#     /usr/lib/x86_64-linux-gnu/libnvidia-*.so* \
+#     /usr/local/cuda/compat/lib/*.515.65.01
+
 # Set the working directory
 WORKDIR /app
 

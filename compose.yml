@@ -19,3 +19,4 @@ services:
             - driver: nvidia
               count: all # or device_ids: ['0', '3']
               capabilities: [gpu]
+#    entrypoint: python3 main.py

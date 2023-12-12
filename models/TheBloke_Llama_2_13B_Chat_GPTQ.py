@@ -33,7 +33,16 @@ def Llama_2_13B_chat_GPTQ(user_prompt, context, initial_prompt):
     # {prompt}[/INST]
     # '''
 
-    prompt_template=f'''[INST]<<SYS>>{initial_prompt} {context}<</SYS>>{user_prompt}[/INST]'''
+    #prompt_template=f'''[INST] <<SYS>>{initial_prompt} {context}<</SYS>>{user_prompt}[/INST]'''
+
+    prompt_template=f'''[INST] <<SYS>>
+    {initial_prompt}
+    <</SYS>> [/INST]
+    {context}
+    <s>[INST] {user_prompt} [/INST]
+
+    '''
+
     print("----------------------------------------------prompt to AI-----------------------------------------------------")
     print(prompt_template)
     print("---------------------------------------------------------------------------------------------------------------")
@@ -65,6 +74,9 @@ def Llama_2_13B_chat_GPTQ(user_prompt, context, initial_prompt):
         top_k=40,
         repetition_penalty=1.1
     )
-    return pipe(prompt_template)[0]['generated_text']
 
-    # print(pipe(prompt_template)[0]['generated_text'])
+    answer = pipe(prompt_template)[0]['generated_text']
+    print("-------------------------------------------------ANSWER--------------------------------------------------------")
+    print(answer)
+    print("---------------------------------------------------------------------------------------------------------------")
+    return answer
