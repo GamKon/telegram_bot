@@ -1,0 +1,20 @@
+dependencies:
+#   apk:
+#   apt:
+  - nvtop
+#   brew:
+#   gem:
+#   docker:
+#   custom:
+# forwards:
+
+actions:
+  app:
+    command: python3 main.py
+    load_secrets: true
+    description: Run the app
+  nv:
+    command: nvtop
+    description: Run monitor for GPU
+  inv:
+    command: apt install nvtop --yes

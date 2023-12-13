@@ -2,15 +2,24 @@
 
 import os
 from transformers import AutoModelForCausalLM, AutoTokenizer, pipeline
+#from auto_gptq import exllama_set_max_input_length
+
 
 def Llama_2_13B_chat_GPTQ(user_prompt, context, initial_prompt):
     model_name_or_path = "TheBloke/Llama-2-13B-chat-GPTQ"
     # To use a different branch, change revision
     # For example: revision="main"
+#    revision = "main"
+#    revision = "gptq-8bit-64g-actorder_True"
+#    revision = "gptq-4bit-32g-actorder_True"
+#    revision = "gptq-4bit-64g-actorder_True"
+#    revision = "gptq-4bit-128g-actorder_True"
+    revision = "gptq-8bit-128g-actorder_False"
     model = AutoModelForCausalLM.from_pretrained(model_name_or_path,
                                                 device_map="auto",
                                                 trust_remote_code=False,
-                                                revision="main")
+                                                revision=revision)
+#    model = exllama_set_max_input_length(model, max_input_length=4096)
 
     tokenizer = AutoTokenizer.from_pretrained(model_name_or_path, use_fast=True)
 
@@ -75,7 +84,10 @@ def Llama_2_13B_chat_GPTQ(user_prompt, context, initial_prompt):
         repetition_penalty=1.1
     )
 
-    answer = pipe(prompt_template)[0]['generated_text']
+    try:
+        answer = pipe(prompt_template)[0]['generated_text']
+    except RuntimeError as e:
+        return f"Plese, repeat the question.\nRuntimeError: {e}"
     print("-------------------------------------------------ANSWER--------------------------------------------------------")
     print(answer)
     print("---------------------------------------------------------------------------------------------------------------")
