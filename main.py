@@ -20,210 +20,144 @@ from models.TheBloke_Llama_2_13B_Chat_GPTQ import Llama_2_13B_chat_GPTQ
 from models.meta_llama_Llama_2_13b_chat_hf import Llama_2_13b_chat_hf
 from models.philschmid_bart_large_cnn_samsum import bart_large_cnn_samsum
 from models.TheBloke_Mistral_7B_OpenOrca_GPTQ import Mistral_7B_OpenOrca_GPTQ
+
 # -----------------------------------------------------------------------------------------
 # Command handlers
 # -----------------------------------------------------------------------------------------
 # /start and /help commans
-# Print HELP_MESSAGE
 async def help_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    # Print HELP_MESSAGE
     await context.bot.send_message(chat_id=update.effective_chat.id, text=HELP_MESSAGE)
-
 # -----------------------------------------------------------------------------------------
-# Image generators
+# /tm command - send question to Mistral-7B-GPTQ q8
+async def mistral_7b(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    # Get question, stripping double spaces
+    user_prompt = str(" ".join(context.args)).strip()
+    await bot_ask_mistral(user_prompt, context, update)
 # -----------------------------------------------------------------------------------------
-# /img command - Image generator
-# stable_diffusion_xl_base_1_0
-async def image_generation(update: Update, context: ContextTypes.DEFAULT_TYPE):
-# If first argument is number, use it as num_inference_steps
+# /t command - send question to Llama_2-13B-chat-GPTQ q4
+async def tb_llama_2(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    # Get question, stripping double spaces
+    user_prompt = str(" ".join(context.args)).strip()
+    await bot_ask_llama_2(user_prompt, context, update)
+# -----------------------------------------------------------------------------------------
+# /init command - sets environment variable INITIAL_PROMPT context from input
+async def new_initial_prompt(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    os.environ['INITIAL_PROMPT'] = str(" ".join(context.args)).strip()
+    await context.bot.send_message(chat_id=update.effective_chat.id, text="New INITIAL_PROMPT:\n"+os.getenv('INITIAL_PROMPT'))
+# -----------------------------------------------------------------------------------------
+# /reset chat history
+async def reset_chat_history(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    context.user_data["chat_history"] = []
+    await context.bot.send_message(chat_id=update.effective_chat.id, text="Chat reset!")
+# -----------------------------------------------------------------------------------------
+# /drop last question - answer from history
+async def drop_prompt(update: Update, context: ContextTypes.DEFAULT_TYPE):
     try:
-        num_inference_steps = int(context.args[0])
-        context.args.pop(0)
-    except ValueError:
-        num_inference_steps = 50
-
-    description = str(" ".join(context.args)).strip()
-
-    generated_picture = stable_diffusion_xl_base_1_0(description, "data/generated_images", num_inference_steps)
-    await context.bot.send_photo(chat_id=update.effective_chat.id, photo=generated_picture, caption=description)
-
-    # Experiment to see picture after each iteration
-        # for iteration in range(1, num_inference_steps):
-        #     generated_picture = stable_diffusion_xl_base_1_0(description, "data/generated_images", iteration)
-        #     await context.bot.send_photo(chat_id=update.effective_chat.id, photo=generated_picture, caption=str(iteration)+" -- "+description)
-
+        context.user_data["chat_history"].pop()
+        await context.bot.send_message(chat_id=update.effective_chat.id, text="Last dialog dropped!")
+    except IndexError:
+        await context.bot.send_message(chat_id=update.effective_chat.id, text="History is empty!")
+        pass
 # -----------------------------------------------------------------------------------------
-# /imgh command - Image generator with added Refiner
-# stable_diffusion_xl_base_refiner_1_0
-async def image_refine_generation(update: Update, context: ContextTypes.DEFAULT_TYPE):
-# If first argument is number, use it as num_inference_steps
-    try:
-        num_inference_steps = int(context.args[0])
-        context.args.pop(0)
-    except ValueError:
-        num_inference_steps = 20
-
-    description = str(" ".join(context.args)).strip()
-
-    generated_picture = stable_diffusion_xl_base_refiner_1_0(description, "data/generated_images", num_inference_steps)
-    await context.bot.send_photo(chat_id=update.effective_chat.id, photo=generated_picture, caption=description)
-
-# -----------------------------------------------------------------------------------------
-# /imgr command - Russian description Image Generator
-# runwayml_stable_diffusion_v1_5
-async def image_ru_generation(update: Update, context: ContextTypes.DEFAULT_TYPE):
-# If first argument is number, use it as num_inference_steps
-    try:
-        num_inference_steps = int(context.args[0])
-        context.args.pop(0)
-    except ValueError:
-        num_inference_steps = 50
-
-    description_ru = str(" ".join(context.args)).strip()
-    description = facebook_wmt19_ru_en(description_ru)
-
-    generated_picture = stable_diffusion_xl_base_1_0(description, "data/generated_images", num_inference_steps)
-    await context.bot.send_photo(chat_id=update.effective_chat.id, photo=generated_picture, caption=description_ru+"\n"+description_ru)
-
 
 # -----------------------------------------------------------------------------------------
 # Chat
 # -----------------------------------------------------------------------------------------
-# /tm command - Chat
-async def meta_llama_2(update: Update, context: ContextTypes.DEFAULT_TYPE):
-#    return
-# How deep to summarize
-    summarize_depth = 4
-# Get question, stripping double spaces
-    user_prompt = str(" ".join(context.args)).strip()
-# Construct context from history
+async def bot_ask_mistral(user_prompt, context, update):
     if "chat_history" not in context.user_data.keys(): context.user_data["chat_history"] = []
-    context_string = construct_context_string_from_history(context.user_data["chat_history"], "Mistral")
+    # Construct context from history
+    context_string_long = construct_context_string_from_history(context.user_data["chat_history"], "Mistral")
+    # Drop old messages from history if whole string for a model is longer than 2048 words
+    context_string = await drop_old_messages_from_history(user_prompt, context_string_long, 2048, context, update)
 
-# Cut old history if whole string to sent is longer than
-
-    while len((user_prompt+context_string+str(os.getenv('INITIAL_PROMPT'))).split())+4 > 2048:
-        context.user_data["chat_history"].pop(0)
-        debug_print("POP oldest record")
-        await context.bot.send_message(chat_id=update.effective_chat.id, text="POP oldest record")
-        context_string = construct_context_string_from_history(context.user_data["chat_history"])
-
-    # From documentation: To increase temp_state buffer:
-    # from auto_gptq import exllama_set_max_input_length
-    # model = exllama_set_max_input_length(model, max_input_length=xxxx)
-
-# Ask Mistral
     # 10 tries to handle crashes. Most likely, because out of RAM
     for i in range(1, 10):
         try:
-#            gpt_answer = Llama_2_13B_chat_GPTQ(user_prompt, context_string, str(os.getenv('INITIAL_PROMPT')))
-#            gpt_answer = Llama_2_13b_chat_hf(user_prompt, context_string, str(os.getenv('INITIAL_PROMPT')))
+            # Ask Mistral
             gpt_answer = Mistral_7B_OpenOrca_GPTQ(user_prompt, context_string, str(os.getenv('INITIAL_PROMPT')))
             break
-        except ValueError as e:
-            print("!!!!!!!!!!!!!!!!!!!-------------MISTRAL CRASH-"+str(i)+"------------!!!!!!!!!!!!!!!!!!!")
+        except (ValueError, RuntimeError) as e:
             await context.bot.send_message(chat_id=update.effective_chat.id, text="Mistral crash,\n" + str(e) + "\nRetry "+str(i))
-            sleep(5)
-        except RuntimeError as e:
-            print("!!!!!!!!!!!!!!!!!!!-------------MISTRAL CRASH-"+str(i)+"------------!!!!!!!!!!!!!!!!!!!")
-            await context.bot.send_message(chat_id=update.effective_chat.id, text="Mistral crash,\n" + str(e) + "\nRetry "+str(i))
-            sleep(5)
+            if i == 9:
+                await context.bot.send_message(chat_id=update.effective_chat.id, text="FATAL Mistral crash after "+str(i)+" retries\nSuggest to /reset chat history")
+                return
+            else: sleep(5)
 
-# Remove initial context from answer
+    # Get the answer from the end of the returned context
     gpt_answer = str(gpt_answer.split("assistant")[-1])
 
-    # Split output by 4096 symbols
-    # answers = [gpt_answer[i:i + 4096] for i in range(len(gpt_answer), 4096)]
-    # for answer in answers:
-# Sent answer to the chat
-    await context.bot.send_message(chat_id=update.effective_chat.id, text=str(len(context.user_data["chat_history"]))+" "+gpt_answer)
+    # If Telegram truncates long message message
+            # Split output by 4096 symbols
+            # answers = [gpt_answer[i:i + 4096] for i in range(len(gpt_answer), 4096)]
+            # for answer in answers:
+            #     await context.bot.send_message(chat_id=update.effective_chat.id, text=str(len(context.user_data["chat_history"]))+" "+answer)
 
-# Save question and answer to list of dictionaries
+    # Sent answer to the chat
+    await context.bot.send_message(chat_id=update.effective_chat.id, text=str(len(context.user_data["chat_history"]))+" "+gpt_answer)
+    # Save question and answer to list of dictionaries
     context.user_data["chat_history"].append({"question": emoji.replace_emoji(user_prompt, replace=''), "answer": emoji.replace_emoji(gpt_answer.strip(), replace='')})
 
-#    debug_print("Context AFTER the answer - debug_context_string:\n"+str(context.user_data["chat_history"]))
     debug_print("Context !AFTER! the answer: "+str(len(context.user_data["chat_history"]))+"\n"+json.dumps(context.user_data["chat_history"], indent=4))
 
-#!! # Summarize [summarize_depth] answer
-#     if len(context.user_data["chat_history"]) >= summarize_depth and len(context.user_data["chat_history"][len(context.user_data["chat_history"])-summarize_depth]['answer']) > 100 :
-#         summarized_answer = bart_large_cnn_samsum(str(context.user_data["chat_history"][len(context.user_data["chat_history"])-summarize_depth]['answer']))
-#         debug_print("BEFORE summarizing: "+str(len(str(context.user_data["chat_history"][len(context.user_data["chat_history"])-summarize_depth]['answer'])))+"\n"+str(context.user_data["chat_history"][len(context.user_data["chat_history"])-summarize_depth]['answer']))
-#         await context.bot.send_message(chat_id=update.effective_chat.id, text=str(len(str(context.user_data["chat_history"][len(context.user_data["chat_history"])-summarize_depth]['answer']))))
-#         debug_print("AFTER summarizing:\n"+summarized_answer)
-#         context.user_data["chat_history"][len(context.user_data["chat_history"])-summarize_depth]['answer'] = summarized_answer
-#         debug_print("Context AFTER Summarizing: "+str(len(str(context.user_data["chat_history"][len(context.user_data["chat_history"])-summarize_depth]['answer'])))+"\n"+json.dumps(context.user_data["chat_history"], indent=4))
-#         await context.bot.send_message(chat_id=update.effective_chat.id, text=str(len(str(context.user_data["chat_history"][len(context.user_data["chat_history"])-summarize_depth]['answer']))))
+    #  # How deep to summarize
+    # summarize_depth = 6
+    #  # Summarize [summarize_depth] answer
+    # await summarize_answer(update, context, summarize_depth)
 
 # -----------------------------------------------------------------------------------------
-# -----------------------------------------------------------------------------------------
-# /t command - Chat
-async def tb_llama_2(update: Update, context: ContextTypes.DEFAULT_TYPE):
-# How deep to summarize
-    summarize_depth = 6
-# Get question, stripping double spaces
-    user_prompt = str(" ".join(context.args)).strip()
-# Construct context from history
+async def bot_ask_llama_2(user_prompt, context, update):
     if "chat_history" not in context.user_data.keys(): context.user_data["chat_history"] = []
-    context_string = construct_context_string_from_history(context.user_data["chat_history"], "Llama")
+    # Construct context from history
+    context_string_long = construct_context_string_from_history(context.user_data["chat_history"], "Llama")
+    # Drop old messages from history if whole string for a model is longer than 1020 words
+    context_string = await drop_old_messages_from_history(user_prompt, context_string_long, 2048, context, update)
+        # Llama 2 documentation: To increase temp_state buffer:
+        # from auto_gptq import exllama_set_max_input_length
+        # model = exllama_set_max_input_length(model, max_input_length=xxxx)
 
-# Cut old history if whole string to sent is longer than
-    words_in_string = "Words in string sent to model - "+str(len((user_prompt+context_string+str(os.getenv('INITIAL_PROMPT'))).split())+24)
-    print(str(words_in_string))
-    await context.bot.send_message(chat_id=update.effective_chat.id, text=words_in_string)
-
-    while len((user_prompt+context_string+str(os.getenv('INITIAL_PROMPT'))).split())+24 > 1200:
-        context.user_data["chat_history"].pop(0)
-        debug_print("POP oldest record")
-        await context.bot.send_message(chat_id=update.effective_chat.id, text="POP oldest record")
-        context_string = construct_context_string_from_history(context.user_data["chat_history"])
-
-    # From documentation: To increase temp_state buffer:
-    # from auto_gptq import exllama_set_max_input_length
-    # model = exllama_set_max_input_length(model, max_input_length=xxxx)
-
-# Ask Llama
     # 10 tries to handle crashes. Most likely, because out of RAM
     for i in range(1, 10):
         try:
-#            gpt_answer = Llama_2_13B_chat_GPTQ(user_prompt, context_string, str(os.getenv('INITIAL_PROMPT')))
+            # Ask Llama_2
             gpt_answer = Llama_2_13B_chat_GPTQ(user_prompt, context_string, str(os.getenv('INITIAL_PROMPT')))
             # If model crashed, drop the answer with error description
-            if "RuntimeError" in gpt_answer: context.user_data["chat_history"].pop()
+            if "Plese, repeat the question.\nRuntimeError:" in gpt_answer:
+                await context.bot.send_message(chat_id=update.effective_chat.id, text=gpt_answer)
+                context.user_data["chat_history"].pop()
+                return
             break
-        except ValueError as e:
-            print("!!!!!!!!!!!!!!!!!!!-------------CRASH-"+str(i)+"------------!!!!!!!!!!!!!!!!!!!")
+        except (ValueError, RuntimeError) as e:
             await context.bot.send_message(chat_id=update.effective_chat.id, text="Llama_2 crash,\n" + str(e) + "\nRetry "+str(i))
-            sleep(5)
+            if i == 9:
+                await context.bot.send_message(chat_id=update.effective_chat.id, text="FATAL Llama_2 crash after "+str(i)+" retries\nSuggest to /reset chat history")
+                return
+            else: sleep(5)
 
-# Remove initial context from answer
+    # Get the answer from the end of the returned context
     gpt_answer = str(gpt_answer.split("[/INST]")[-1])
 
-    # Split output by 4096 symbols
-    # answers = [gpt_answer[i:i + 4096] for i in range(len(gpt_answer), 4096)]
-    # for answer in answers:
-# Sent answer to the chat
-    await context.bot.send_message(chat_id=update.effective_chat.id, text=str(len(context.user_data["chat_history"]))+" "+gpt_answer)
+    # If Telegram truncates long message message
+        # Split output by 4096 symbols
+        # answers = [gpt_answer[i:i + 4096] for i in range(len(gpt_answer), 4096)]
+        # for answer in answers:
+        #     await context.bot.send_message(chat_id=update.effective_chat.id, text=str(len(context.user_data["chat_history"]))+" "+answer)
 
-# Save question and answer to list of dictionaries
+    # Sent answer to the chat
+    await context.bot.send_message(chat_id=update.effective_chat.id, text=str(len(context.user_data["chat_history"]))+" "+gpt_answer)
+    # Save question and answer to list of dictionaries
     context.user_data["chat_history"].append({"question": emoji.replace_emoji(user_prompt, replace=''), "answer": emoji.replace_emoji(gpt_answer.strip(), replace='')})
 
-#    debug_print("Context AFTER the answer - debug_context_string:\n"+str(context.user_data["chat_history"]))
     debug_print("Context !AFTER! the answer: "+str(len(context.user_data["chat_history"]))+"\n"+json.dumps(context.user_data["chat_history"], indent=4))
 
-#!! # Summarize [summarize_depth] answer
-    if len(context.user_data["chat_history"]) >= summarize_depth and len(context.user_data["chat_history"][len(context.user_data["chat_history"])-summarize_depth]['answer']) > 100 :
-        summarized_answer = bart_large_cnn_samsum(str(context.user_data["chat_history"][len(context.user_data["chat_history"])-summarize_depth]['answer']))
-#        debug_print("BEFORE summarizing: "+str(len(str(context.user_data["chat_history"][len(context.user_data["chat_history"])-summarize_depth]['answer'])))+"\n"+str(context.user_data["chat_history"][len(context.user_data["chat_history"])-summarize_depth]['answer']))
-        await context.bot.send_message(chat_id=update.effective_chat.id, text="Summarizing answer #"+str(len(context.user_data["chat_history"])-summarize_depth)+"\nLenght: "+str(len(str(context.user_data["chat_history"][len(context.user_data["chat_history"])-summarize_depth]['answer']))))
-#        debug_print("AFTER summarizing:\n"+summarized_answer)
-        context.user_data["chat_history"][len(context.user_data["chat_history"])-summarize_depth]['answer'] = summarized_answer
-#        debug_print("Context AFTER Summarizing: "+str(len(str(context.user_data["chat_history"][len(context.user_data["chat_history"])-summarize_depth]['answer'])))+"\n"+json.dumps(context.user_data["chat_history"], indent=4))
-        await context.bot.send_message(chat_id=update.effective_chat.id, text="Result length: "+str(len(str(context.user_data["chat_history"][len(context.user_data["chat_history"])-summarize_depth]['answer']))))
-# -----------------------------------------------------------------------------------------
-# -----------------------------------------------------------------------------------------
-
+    # How deep to summarize
+    summarize_depth = 6
+    # Summarize [summarize_depth] answer
+    await summarize_answer(update, context, summarize_depth)
 
 # -----------------------------------------------------------------------------------------
 # String processing defs
+# -----------------------------------------------------------------------------------------
 def construct_context_string_from_history(chat_context, model_format):
 # Construct context from history
     context_string = " "
@@ -242,6 +176,41 @@ def construct_context_string_from_history(chat_context, model_format):
 def count_words_in_string(string):
     return len(string.split())
 
+# -----------------------------------------------------------------------------------------
+async def drop_old_messages_from_history(user_prompt, context_string, max_words_in_context, context, update):
+    # Drop old messages from history if whole string for a model is longer than {max_words_in_context} words
+    while len((user_prompt+context_string+str(os.getenv('INITIAL_PROMPT'))).split())+24 > max_words_in_context:
+        context.user_data["chat_history"].pop(0)
+        debug_message = str(len((user_prompt+context_string+str(os.getenv('INITIAL_PROMPT'))).split())+24) + " > " + max_words_in_context + "\nPOP oldest record"
+        await context.bot.send_message(chat_id=update.effective_chat.id, text=debug_message)
+        context_string = construct_context_string_from_history(context.user_data["chat_history"])
+    words_in_string = "Words sent to model - "+str(len((user_prompt+context_string+str(os.getenv('INITIAL_PROMPT'))).split())+24)
+    await context.bot.send_message(chat_id=update.effective_chat.id, text=words_in_string)
+    return context_string
+
+# -----------------------------------------------------------------------------------------
+async def summarize_answer(update, context, summarize_depth):
+    if len(context.user_data["chat_history"]) >= summarize_depth and len(context.user_data["chat_history"][len(context.user_data["chat_history"])-summarize_depth]['answer']) > 100 :
+        summarized_answer = bart_large_cnn_samsum(str(context.user_data["chat_history"][len(context.user_data["chat_history"])-summarize_depth]['answer']))
+#        debug_print("BEFORE summarizing: "+str(len(str(context.user_data["chat_history"][len(context.user_data["chat_history"])-summarize_depth]['answer'])))+"\n"+str(context.user_data["chat_history"][len(context.user_data["chat_history"])-summarize_depth]['answer']))
+        await context.bot.send_message(chat_id=update.effective_chat.id, text="Summarizing answer #"+str(len(context.user_data["chat_history"])-summarize_depth)+"\nLenght: "+str(len(str(context.user_data["chat_history"][len(context.user_data["chat_history"])-summarize_depth]['answer']))))
+#        debug_print("AFTER summarizing:\n"+summarized_answer)
+        context.user_data["chat_history"][len(context.user_data["chat_history"])-summarize_depth]['answer'] = summarized_answer
+#        debug_print("Context AFTER Summarizing: "+str(len(str(context.user_data["chat_history"][len(context.user_data["chat_history"])-summarize_depth]['answer'])))+"\n"+json.dumps(context.user_data["chat_history"], indent=4))
+        await context.bot.send_message(chat_id=update.effective_chat.id, text="Result length: "+str(len(str(context.user_data["chat_history"][len(context.user_data["chat_history"])-summarize_depth]['answer']))))
+
+# -----------------------------------------------------------------------------------------
+# /s Summarize user message with bart_large_cnn_samsum
+# -----------------------------------------------------------------------------------------
+async def summarize_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    user_message = str(" ".join(context.args)).strip()
+#    debug_print("user_message to summarize: "+user_message)
+    summary = bart_large_cnn_samsum(user_message)
+    await context.bot.send_message(chat_id=update.effective_chat.id, text="Summary of message:\n"+summary)
+
+
+# -----------------------------------------------------------------------------------------
+# May not working commands. Didn't check in a while
 # -----------------------------------------------------------------------------------------
 # Russian translation
 # /tr command - Chat via russian Translator
@@ -283,6 +252,7 @@ async def echo(update: Update, context: ContextTypes.DEFAULT_TYPE):
     for answer in answers:
         await context.bot.send_message(chat_id=update.effective_chat.id, text=answer)
 
+# -----------------------------------------------------------------------------------------
 # /txtr command - russian only Text Generator + Translator
 async def echo_ru(update: Update, context: ContextTypes.DEFAULT_TYPE):
     chat_bot_ru_answer = ""
@@ -300,36 +270,66 @@ async def echo_ru(update: Update, context: ContextTypes.DEFAULT_TYPE):
     for answer in answers:
         await context.bot.send_message(chat_id=update.effective_chat.id, text=answer)
 
+
 # -----------------------------------------------------------------------------------------
-# /init command - sets environment variable INITIAL_PROMPT context from input
-async def new_initial_prompt(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    os.environ['INITIAL_PROMPT'] = str(" ".join(context.args)).strip()
-    await context.bot.send_message(chat_id=update.effective_chat.id, text="New INITIAL_PROMPT:\n"+os.getenv('INITIAL_PROMPT'))
+# Image generators
 # -----------------------------------------------------------------------------------------
-# /reset chat context and print HELP_MESSAGE
-async def reset_initial_prompt(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    context.user_data["chat_history"] = []
-    await context.bot.send_message(chat_id=update.effective_chat.id, text="Chat reset!\n"+HELP_MESSAGE)
-# /drop last wuestion - answer
-async def drop_prompt(update: Update, context: ContextTypes.DEFAULT_TYPE):
+# /img command - Image generator
+# stable_diffusion_xl_base_1_0
+async def image_generation(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    # If first argument is a number, use it as num_inference_steps
     try:
-        context.user_data["chat_history"].pop()
-        await context.bot.send_message(chat_id=update.effective_chat.id, text="Last dialog dropped!")
-    except IndexError:
-        await context.bot.send_message(chat_id=update.effective_chat.id, text="History is empty!")
-        pass
+        num_inference_steps = int(context.args[0])
+        context.args.pop(0)
+    except ValueError:
+        num_inference_steps = 50
+
+    description = str(" ".join(context.args)).strip()
+
+    generated_picture = stable_diffusion_xl_base_1_0(description, "data/generated_images", num_inference_steps)
+    await context.bot.send_photo(chat_id=update.effective_chat.id, photo=generated_picture, caption=description)
+
+    # Experiment to see picture after each iteration
+        # for iteration in range(1, num_inference_steps):
+        #     generated_picture = stable_diffusion_xl_base_1_0(description, "data/generated_images", iteration)
+        #     await context.bot.send_photo(chat_id=update.effective_chat.id, photo=generated_picture, caption=str(iteration)+" -- "+description)
 
 # -----------------------------------------------------------------------------------------
-# /s Summarize user message with bart_large_cnn_samsum
-# -----------------------------------------------------------------------------------------
-async def summarize_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    user_message = str(" ".join(context.args)).strip()
-#    debug_print("user_message to summarize: "+user_message)
-    summary = bart_large_cnn_samsum(user_message)
-    await context.bot.send_message(chat_id=update.effective_chat.id, text="Summary of message:\n"+summary)
+# /imgh command - Image generator with added Refiner
+# stable_diffusion_xl_base_refiner_1_0
+async def image_refine_generation(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    # If first argument is number, use it as num_inference_steps
+    try:
+        num_inference_steps = int(context.args[0])
+        context.args.pop(0)
+    except ValueError:
+        num_inference_steps = 20
+
+    description = str(" ".join(context.args)).strip()
+
+    generated_picture = stable_diffusion_xl_base_refiner_1_0(description, "data/generated_images", num_inference_steps)
+    await context.bot.send_photo(chat_id=update.effective_chat.id, photo=generated_picture, caption=description)
 
 # -----------------------------------------------------------------------------------------
-# Image classificator and 2x Upscaler
+# /imgr command - Russian description Image Generator
+# runwayml_stable_diffusion_v1_5
+async def image_ru_generation(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    # If first argument is number, use it as num_inference_steps
+    try:
+        num_inference_steps = int(context.args[0])
+        context.args.pop(0)
+    except ValueError:
+        num_inference_steps = 50
+
+    description_ru = str(" ".join(context.args)).strip()
+    description = facebook_wmt19_ru_en(description_ru)
+
+    generated_picture = stable_diffusion_v1_5(description, "data/generated_images", num_inference_steps)
+    await context.bot.send_photo(chat_id=update.effective_chat.id, photo=generated_picture, caption=description_ru+"\n"+description_ru)
+
+
+# -----------------------------------------------------------------------------------------
+# Image classificator and 4x Upscaler
 # -----------------------------------------------------------------------------------------
 async def photo_classification(update: Update, context: ContextTypes.DEFAULT_TYPE):
     new_file    = await update.message.effective_attachment[-1].get_file()
@@ -344,9 +344,11 @@ async def photo_classification(update: Update, context: ContextTypes.DEFAULT_TYP
 #    debug_print(upscaled_picture)
     await context.bot.send_photo(chat_id=update.effective_chat.id, photo=upscaled_picture)
 
+
 # -----------------------------------------------------------------------------------------
 # Audio processing
 # -----------------------------------------------------------------------------------------
+# Transcript voice message with Oopenai Whisper-large-v3
 async def voice_transcribe(update: Update, context: ContextTypes.DEFAULT_TYPE):
     new_file    = await update.message.effective_attachment.get_file()
     file_name   = new_file.file_path.split("/")[-1]
@@ -357,77 +359,107 @@ async def voice_transcribe(update: Update, context: ContextTypes.DEFAULT_TYPE):
         except shutil.SameFileError:
             # TODO parse file_name for better making unic name
             file_name = "1" + file_name
-    await context.bot.send_message(chat_id=update.effective_chat.id, text=openai_whisper_large_v3(file_path))
+    user_prompt = openai_whisper_large_v3(file_path)
+    if "hey" in str(user_prompt.split()[0]).lower() and "bot" in str(user_prompt.split()[1]).lower():
+        # cut first two words in string user_prompt and send to bot
+        user_prompt = " ".join(user_prompt.split()[2:])
+        await context.bot.send_message(chat_id=update.effective_chat.id, text="Asking Mistral: "+user_prompt)
+        await bot_ask_mistral(user_prompt, context, update)
+    else:
+        await context.bot.send_message(chat_id=update.effective_chat.id, text=user_prompt)
+
 
 # -----------------------------------------------------------------------------------------
 # Error message
 async def error(update: Update, context: ContextTypes.DEFAULT_TYPE):
     await context.bot.send_message(chat_id=update.effective_chat.id, text="Sorry, I didn't understand that command.\n" + HELP_MESSAGE)
-
+# -----------------------------------------------------------------------------------------
+# Debug print string
 def debug_print(to_print):
     print("\n!!!------------------------\n"+to_print+"\n------------------------!!!\n")
 
 
+# -----------------------------------------------------------------------------------------
+#           MAIN
+# -----------------------------------------------------------------------------------------
 if __name__ == '__main__':
 
     # Create a persistence object
     bot_persistence = PicklePersistence(filepath='data/chat/chat_history')
 
-# Variables ------------------------------------------------------------------------------
+# Variables
     HELP_MESSAGE        = os.getenv('HELP_MESSAGE')
     TELEGRAM_BOT_TOKEN  = os.getenv('TELEGRAM_BOT_TOKEN')
 
     application     = ApplicationBuilder().token(TELEGRAM_BOT_TOKEN).persistence(persistence=bot_persistence).build()
 
+# LLM
+    # /t command - send question to Llama_2-13B-chat-GPTQ q4
+    tb_llama_2_handler   = CommandHandler('t',    tb_llama_2)
+    application.add_handler(tb_llama_2_handler)
+
+    # /tm command - send question to Mistral-7B-GPTQ q8
+    mistral_7b_handler = CommandHandler('tm',    mistral_7b)
+    application.add_handler(mistral_7b_handler)
+
+    # /tr command - Chat via russian Translator
+    gpt_ru_handler  = CommandHandler('tr',   gpt_ru)
+    application.add_handler(gpt_ru_handler)
+
+    # /txt command - Text Generator + Translator
+    echo_handler    = CommandHandler('txt',  echo)
+    application.add_handler(echo_handler)
+
+    # /txtr command - russian only Text Generator + Translator
+    echo_ru_handler = CommandHandler('txtr', echo_ru)
+    application.add_handler(echo_ru_handler)
+
+    # /init command - sets environment variable INITIAL_PROMPT from input
+    new_context_handler     = CommandHandler('init',    new_initial_prompt)
+    application.add_handler(new_context_handler)
+
+    # /reset chat history
+    reset_context_handler     = CommandHandler('reset', reset_chat_history)
+    application.add_handler(reset_context_handler)
+
+    # /drop last question - answer from history
+    drop_prompt_handler     = CommandHandler('drop',    drop_prompt)
+    application.add_handler(drop_prompt_handler)
+
+    # /s Summarize user message with bart_large_cnn_samsum
+    summarize_message_handler = CommandHandler('s',     summarize_message)
+    application.add_handler(summarize_message_handler)
+
+# Image processing
+    # /img command - Image generator stable_diffusion_xl_base_1_0
+    img_handler     = CommandHandler('img',     image_generation)
+    application.add_handler(img_handler)
+
+    # /imgh command - Image generator with Refiner stable_diffusion_xl_base_refiner_1_0
+    imgh_handler    = CommandHandler('imgh',    image_refine_generation)
+    application.add_handler(imgh_handler)
+
+    # /imgr command - Russian description Image Generator
+    img_ru_handler  = CommandHandler('imgr',    image_ru_generation)
+    application.add_handler(img_ru_handler)
+
+    # Image classificator and 4x Upscaler
+    image_handler   = MessageHandler(filters.PHOTO,   photo_classification)
+    application.add_handler(image_handler)
+
+# Audio processing
+    # Transcript voice message with Oopenai Whisper-large-v3
+    audio_handler   = MessageHandler(filters.VOICE ,  voice_transcribe)
+    application.add_handler(audio_handler)
+
+# System commands
+    # /start and /help commans
     start_handler   = CommandHandler('start', help_command)
     application.add_handler(start_handler)
     help_handler    = CommandHandler('help', help_command)
     application.add_handler(help_handler)
 
-# Image processing -----------------------------------------------------------------------------------------
-    img_handler     = CommandHandler('img',     image_generation)
-    application.add_handler(img_handler)
-    imgh_handler    = CommandHandler('imgh',    image_refine_generation)
-    application.add_handler(imgh_handler)
-    img_ru_handler  = CommandHandler('imgr',    image_ru_generation)
-    application.add_handler(img_ru_handler)
-    image_handler   = MessageHandler(filters.PHOTO, photo_classification)
-    application.add_handler(image_handler)
-
-# Chat -----------------------------------------------------------------------------------------------------
-    tb_llama_2_handler   = CommandHandler('t',    tb_llama_2)
-    application.add_handler(tb_llama_2_handler)
-
-    meta_llama_2_handler = CommandHandler('tm',    meta_llama_2)
-    application.add_handler(meta_llama_2_handler)
-
-
-
-    gpt_ru_handler  = CommandHandler('tr',   gpt_ru)
-    application.add_handler(gpt_ru_handler)
-
-    echo_handler    = CommandHandler('txt',  echo)
-    application.add_handler(echo_handler)
-    echo_ru_handler = CommandHandler('txtr', echo_ru)
-    application.add_handler(echo_ru_handler)
-
-    new_context_handler     = CommandHandler('init', new_initial_prompt)
-    application.add_handler(new_context_handler)
-
-    reset_context_handler     = CommandHandler('reset', reset_initial_prompt)
-    application.add_handler(reset_context_handler)
-
-    drop_prompt_handler     = CommandHandler('drop', drop_prompt)
-    application.add_handler(drop_prompt_handler)
-
-    summarize_message_handler = CommandHandler('s',summarize_message)
-    application.add_handler(summarize_message_handler)
-
-# Audio processing -----------------------------------------------------------------------------------------
-    audio_handler   = MessageHandler(filters.VOICE , voice_transcribe)
-    application.add_handler(audio_handler)
-
-# Other handlers
+    # Error message
     unknown_handler = MessageHandler(filters.COMMAND, error)
     application.add_handler(unknown_handler)
 

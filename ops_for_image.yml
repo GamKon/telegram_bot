@@ -1,7 +1,7 @@
 dependencies:
 #   apk:
 #   apt:
-  - nvtop
+#   - nvtop
 #   brew:
 #   gem:
 #   docker:
@@ -17,4 +17,7 @@ actions:
     command: nvtop
     description: Run monitor for GPU
   inv:
-    command: apt install nvtop --yes
+    command: |
+      apt install nvtop --yes
+      nvtop
+    description: Install and run monitor for GPU

@@ -4,7 +4,7 @@
 from diffusers import StableDiffusionPipeline
 import torch
 
-def stable_diffusion_v1_5(prompt, file_path):
+def stable_diffusion_v1_5(prompt, file_path, num_inference_steps):
     model_id    = "runwayml/stable-diffusion-v1-5"
     pipe        = StableDiffusionPipeline.from_pretrained(model_id, torch_dtype=torch.float16)
     pipe        = pipe.to("cuda")
