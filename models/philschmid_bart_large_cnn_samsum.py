@@ -7,7 +7,16 @@ def bart_large_cnn_samsum(text_to_summarize):
 
     summarizer = pipeline("summarization", model="philschmid/bart-large-cnn-samsum")
 
-    return summarizer(text_to_summarize, max_length=2048)[0]['summary_text']
+    max_new_tokens = len(text_to_summarize.split())
+    if max_new_tokens < 300:
+        return text_to_summarize
+    else:
+        return summarizer(
+            text_to_summarize,
+            min_new_tokens = 300,
+            max_new_tokens = max_new_tokens
+    #        max_length=max_length
+        )[0]['summary_text']
 
 
 # conversation = '''Jeff: Can I train a 🤗 Transformers model on Amazon SageMaker?

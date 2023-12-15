@@ -12,6 +12,7 @@ from telegram.ext import filters, MessageHandler, ApplicationBuilder, CommandHan
 from models.vit_base_patch32_384 import image_category_32_384
 from models.microsoft_phi_1_5 import chat_phi_1_5
 from models.facebook_wmt19 import facebook_wmt19_en_ru, facebook_wmt19_ru_en
+from models.facebook_wmt21_dense_24_wide_en_x import facebook_wmt21_en_x
 from models.runwayml_stable_diffusion_v1_5 import stable_diffusion_v1_5
 from models.openai_whisper_large_v3 import openai_whisper_large_v3
 from models.stabilityai_stable_diffusion_xl_base_1_0 import stable_diffusion_xl_base_1_0, stable_diffusion_xl_base_refiner_1_0
@@ -41,10 +42,16 @@ async def tb_llama_2(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user_prompt = str(" ".join(context.args)).strip()
     await bot_ask_llama_2(user_prompt, context, update)
 # -----------------------------------------------------------------------------------------
-# /init command - sets environment variable INITIAL_PROMPT context from input
+# /init command - sets user's system initial_prompt from input or environment variable INITIAL_PROMPT
 async def new_initial_prompt(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    os.environ['INITIAL_PROMPT'] = str(" ".join(context.args)).strip()
-    await context.bot.send_message(chat_id=update.effective_chat.id, text="New INITIAL_PROMPT:\n"+os.getenv('INITIAL_PROMPT'))
+    if "initial_prompt" not in context.user_data.keys():
+        context.user_data["initial_prompt"] = []
+        context.user_data["initial_prompt"].append({"system_prompt": ""})
+    if len(context.args) == 0:
+        context.user_data["initial_prompt"][0] = {"system_prompt": str(os.getenv('INITIAL_PROMPT')).strip()}
+    else:
+        context.user_data["initial_prompt"][0] = {"system_prompt": str(" ".join(context.args)).strip()}
+    await context.bot.send_message(chat_id=update.effective_chat.id, text="New initial_prompt:\n"+context.user_data["initial_prompt"][0]["system_prompt"])
 # -----------------------------------------------------------------------------------------
 # /reset chat history
 async def reset_chat_history(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -65,17 +72,23 @@ async def drop_prompt(update: Update, context: ContextTypes.DEFAULT_TYPE):
 # Chat
 # -----------------------------------------------------------------------------------------
 async def bot_ask_mistral(user_prompt, context, update):
-    if "chat_history" not in context.user_data.keys(): context.user_data["chat_history"] = []
+    if "chat_history" not in context.user_data.keys():
+        context.user_data["chat_history"] = []
+    if "initial_prompt" not in context.user_data.keys():
+        context.user_data["initial_prompt"] = []
+        context.user_data["initial_prompt"].append({"system_prompt": str(os.getenv('INITIAL_PROMPT')).strip()})
+
     # Construct context from history
     context_string_long = construct_context_string_from_history(context.user_data["chat_history"], "Mistral")
-    # Drop old messages from history if whole string for a model is longer than 2048 words
-    context_string = await drop_old_messages_from_history(user_prompt, context_string_long, 2048, context, update)
+# Drop old messages from history if whole string for a model is longer than 2048 words
+###    context_string = await drop_old_messages_from_history(user_prompt, context_string_long, 2048, context, update, "Mistral")
+    context_string = context_string_long
 
     # 10 tries to handle crashes. Most likely, because out of RAM
     for i in range(1, 10):
         try:
             # Ask Mistral
-            gpt_answer = Mistral_7B_OpenOrca_GPTQ(user_prompt, context_string, str(os.getenv('INITIAL_PROMPT')))
+            gpt_answer, num_tokens, num_words = Mistral_7B_OpenOrca_GPTQ(user_prompt, context_string, context.user_data["initial_prompt"][0]["system_prompt"])
             break
         except (ValueError, RuntimeError) as e:
             await context.bot.send_message(chat_id=update.effective_chat.id, text="Mistral crash,\n" + str(e) + "\nRetry "+str(i))
@@ -86,32 +99,40 @@ async def bot_ask_mistral(user_prompt, context, update):
 
     # Get the answer from the end of the returned context
     gpt_answer = str(gpt_answer.split("assistant")[-1])
-
-    # If Telegram truncates long message message
-            # Split output by 4096 symbols
-            # answers = [gpt_answer[i:i + 4096] for i in range(len(gpt_answer), 4096)]
-            # for answer in answers:
-            #     await context.bot.send_message(chat_id=update.effective_chat.id, text=str(len(context.user_data["chat_history"]))+" "+answer)
-
     # Sent answer to the chat
-    await context.bot.send_message(chat_id=update.effective_chat.id, text=str(len(context.user_data["chat_history"]))+" "+gpt_answer)
+    await context.bot.send_message(chat_id=update.effective_chat.id, text="Index: "+str(len(context.user_data["chat_history"]))+"; Words: "+str(num_words)+"; Tokens: "+str(num_tokens)+"\n"+gpt_answer)
+    #await telegram_output_long_string(gpt_answer, context, update)
+    # Translate the answer
+# TRANSLATION DISABLED
+#    gpt_answer_ru = await translate_string_en_ru(gpt_answer)
+    # Sent answer to the chat
+#    await context.bot.send_message(chat_id=update.effective_chat.id, text="\n-----------------\n "+gpt_answer_ru)
+    #await telegram_output_long_string(gpt_answer_ru, context, update)
+
+
     # Save question and answer to list of dictionaries
     context.user_data["chat_history"].append({"question": emoji.replace_emoji(user_prompt, replace=''), "answer": emoji.replace_emoji(gpt_answer.strip(), replace='')})
 
-    debug_print("Context !AFTER! the answer: "+str(len(context.user_data["chat_history"]))+"\n"+json.dumps(context.user_data["chat_history"], indent=4))
+##    debug_print("Context !AFTER! the answer: "+str(len(context.user_data["chat_history"]))+"\n"+json.dumps(context.user_data["chat_history"], indent=4))
 
-    #  # How deep to summarize
-    # summarize_depth = 6
-    #  # Summarize [summarize_depth] answer
-    # await summarize_answer(update, context, summarize_depth)
+# How deep to summarize
+    summarize_depth = 8
+# Summarize [summarize_depth] answer
+    await summarize_answer(update, context, summarize_depth)
 
 # -----------------------------------------------------------------------------------------
 async def bot_ask_llama_2(user_prompt, context, update):
-    if "chat_history" not in context.user_data.keys(): context.user_data["chat_history"] = []
+    if "chat_history" not in context.user_data.keys():
+        context.user_data["chat_history"] = []
+    if "initial_prompt" not in context.user_data.keys():
+        context.user_data["initial_prompt"] = []
+        context.user_data["initial_prompt"].append({"system_prompt": str(os.getenv('INITIAL_PROMPT')).strip()})
+
     # Construct context from history
     context_string_long = construct_context_string_from_history(context.user_data["chat_history"], "Llama")
-    # Drop old messages from history if whole string for a model is longer than 1020 words
-    context_string = await drop_old_messages_from_history(user_prompt, context_string_long, 2048, context, update)
+# Drop old messages from history if whole string for a model is longer than 1020 words
+#    context_string = await drop_old_messages_from_history(user_prompt, context_string_long, 2048, context, update, "Llama")
+    context_string = context_string_long
         # Llama 2 documentation: To increase temp_state buffer:
         # from auto_gptq import exllama_set_max_input_length
         # model = exllama_set_max_input_length(model, max_input_length=xxxx)
@@ -120,11 +141,10 @@ async def bot_ask_llama_2(user_prompt, context, update):
     for i in range(1, 10):
         try:
             # Ask Llama_2
-            gpt_answer = Llama_2_13B_chat_GPTQ(user_prompt, context_string, str(os.getenv('INITIAL_PROMPT')))
+            gpt_answer, num_tokens, num_words = Llama_2_13B_chat_GPTQ(user_prompt, context_string, context.user_data["initial_prompt"][0]["system_prompt"])
             # If model crashed, drop the answer with error description
             if "Plese, repeat the question.\nRuntimeError:" in gpt_answer:
                 await context.bot.send_message(chat_id=update.effective_chat.id, text=gpt_answer)
-                context.user_data["chat_history"].pop()
                 return
             break
         except (ValueError, RuntimeError) as e:
@@ -144,7 +164,7 @@ async def bot_ask_llama_2(user_prompt, context, update):
         #     await context.bot.send_message(chat_id=update.effective_chat.id, text=str(len(context.user_data["chat_history"]))+" "+answer)
 
     # Sent answer to the chat
-    await context.bot.send_message(chat_id=update.effective_chat.id, text=str(len(context.user_data["chat_history"]))+" "+gpt_answer)
+    await context.bot.send_message(chat_id=update.effective_chat.id, text="Index: "+str(len(context.user_data["chat_history"]))+"; Words: "+str(num_words)+"; Tokens: "+str(num_tokens)+"\n"+gpt_answer)
     # Save question and answer to list of dictionaries
     context.user_data["chat_history"].append({"question": emoji.replace_emoji(user_prompt, replace=''), "answer": emoji.replace_emoji(gpt_answer.strip(), replace='')})
 
@@ -152,8 +172,8 @@ async def bot_ask_llama_2(user_prompt, context, update):
 
     # How deep to summarize
     summarize_depth = 6
-    # Summarize [summarize_depth] answer
-    await summarize_answer(update, context, summarize_depth)
+# Summarize [summarize_depth] answer
+#    await summarize_answer(update, context, summarize_depth)
 
 # -----------------------------------------------------------------------------------------
 # String processing defs
@@ -169,7 +189,7 @@ def construct_context_string_from_history(chat_context, model_format):
 #            context_string = context_string + (chat_context[i]['question']+" "+chat_context[i]['answer'])
                 context_string = context_string + ("<|im_start|>user "+chat_context[i]['question']+" <|im_end|> <|im_start|>assistant "+chat_context[i]['answer']+" <|im_end|> ")
             else:
-                print("ERROR: Unknown model format")
+                debug_print("ERROR: Unknown model format")
                 context_string = " "
     return context_string
 
@@ -177,20 +197,20 @@ def count_words_in_string(string):
     return len(string.split())
 
 # -----------------------------------------------------------------------------------------
-async def drop_old_messages_from_history(user_prompt, context_string, max_words_in_context, context, update):
+async def drop_old_messages_from_history(user_prompt, context_string, max_words_in_context, context, update, model_format):
     # Drop old messages from history if whole string for a model is longer than {max_words_in_context} words
-    while len((user_prompt+context_string+str(os.getenv('INITIAL_PROMPT'))).split())+24 > max_words_in_context:
+    while len(str(user_prompt+context_string+context.user_data["initial_prompt"][0]["system_prompt"]).split())+24 > max_words_in_context:
         context.user_data["chat_history"].pop(0)
-        debug_message = str(len((user_prompt+context_string+str(os.getenv('INITIAL_PROMPT'))).split())+24) + " > " + max_words_in_context + "\nPOP oldest record"
+        debug_message = str(len(str(user_prompt+context_string+context.user_data["initial_prompt"][0]["system_prompt"]).split())+24) + " > " + str(max_words_in_context) + "\nPOP oldest record"
         await context.bot.send_message(chat_id=update.effective_chat.id, text=debug_message)
-        context_string = construct_context_string_from_history(context.user_data["chat_history"])
-    words_in_string = "Words sent to model - "+str(len((user_prompt+context_string+str(os.getenv('INITIAL_PROMPT'))).split())+24)
+        context_string = construct_context_string_from_history(context.user_data["chat_history"], model_format)
+    words_in_string = "Words sent to model - "+str(len(str(user_prompt+context_string+context.user_data["initial_prompt"][0]["system_prompt"]).split())+24)
     await context.bot.send_message(chat_id=update.effective_chat.id, text=words_in_string)
     return context_string
 
 # -----------------------------------------------------------------------------------------
 async def summarize_answer(update, context, summarize_depth):
-    if len(context.user_data["chat_history"]) >= summarize_depth and len(context.user_data["chat_history"][len(context.user_data["chat_history"])-summarize_depth]['answer']) > 100 :
+    if len(context.user_data["chat_history"]) >= summarize_depth and len(context.user_data["chat_history"][len(context.user_data["chat_history"])-summarize_depth]['answer']) > 300 :
         summarized_answer = bart_large_cnn_samsum(str(context.user_data["chat_history"][len(context.user_data["chat_history"])-summarize_depth]['answer']))
 #        debug_print("BEFORE summarizing: "+str(len(str(context.user_data["chat_history"][len(context.user_data["chat_history"])-summarize_depth]['answer'])))+"\n"+str(context.user_data["chat_history"][len(context.user_data["chat_history"])-summarize_depth]['answer']))
         await context.bot.send_message(chat_id=update.effective_chat.id, text="Summarizing answer #"+str(len(context.user_data["chat_history"])-summarize_depth)+"\nLenght: "+str(len(str(context.user_data["chat_history"][len(context.user_data["chat_history"])-summarize_depth]['answer']))))
@@ -207,6 +227,27 @@ async def summarize_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
 #    debug_print("user_message to summarize: "+user_message)
     summary = bart_large_cnn_samsum(user_message)
     await context.bot.send_message(chat_id=update.effective_chat.id, text="Summary of message:\n"+summary)
+
+# -----------------------------------------------------------------------------------------
+async def telegram_output_long_string(string_to_post, context, update):
+    # If Telegram truncates long message message
+    # Split output by 4096 symbols
+    answers = [string_to_post[i:i + 4096] for i in range(len(string_to_post), 4096)]
+    for answer in answers:
+        print(answer)
+        #await context.bot.send_message(chat_id=update.effective_chat.id, text=str(len(context.user_data["chat_history"]))+" "+answer)
+
+# -----------------------------------------------------------------------------------------
+# Translate string from English to Russian
+async def translate_string_en_ru(string_en):
+    string_ru = ""
+    # Translate by paragraphs
+    paragraphs = string_en.split("\n")
+    for paragraph in paragraphs:
+        if len(paragraph) > 2 :
+            translation = facebook_wmt21_en_x(paragraph)
+            string_ru = string_ru + " ".join(translation) + "\n\n"
+    return string_ru
 
 
 # -----------------------------------------------------------------------------------------
@@ -227,7 +268,7 @@ async def gpt_ru(update: Update, context: ContextTypes.DEFAULT_TYPE):
     # TODO: make split by the end of sentence, not just by num of chars
 #    answers_en = [chat_bot_en_answer[i:i + 2048] for i in range(0, len(chat_bot_en_answer), 2048)]
 #    for answer_en in answers_en:
-    chat_bot_ru_answer = chat_bot_ru_answer + facebook_wmt19_en_ru(chat_bot_en_answer)
+    chat_bot_ru_answer = chat_bot_ru_answer + facebook_wmt21_en_x(chat_bot_en_answer)
     # Split output by 4096 symbols
 #    debug_print(chat_bot_ru_answer)
     answers = [chat_bot_ru_answer[i:i + 4096] for i in range(0, len(chat_bot_ru_answer), 4096)]
@@ -245,7 +286,7 @@ async def echo(update: Update, context: ContextTypes.DEFAULT_TYPE):
     # TODO: make split by the end of sentence, not just by num of chars
     answers_en = [chat_bot_en_answer[i:i + 1024] for i in range(0, len(chat_bot_en_answer), 1024)]
     for answer_en in answers_en:
-        chat_bot_ru_answer = chat_bot_ru_answer + facebook_wmt19_en_ru(answer_en)
+        chat_bot_ru_answer = chat_bot_ru_answer + facebook_wmt21_en_x(answer_en)
     chat_bot_answer = chat_bot_en_answer + chat_bot_ru_answer
     # Split output by 4096 symbols
     answers = [chat_bot_answer[i:i + 4096] for i in range(0, len(chat_bot_answer), 4096)]
@@ -264,7 +305,7 @@ async def echo_ru(update: Update, context: ContextTypes.DEFAULT_TYPE):
     # TODO: make split by the end of sentence, not just by num of chars
     answers_en = [chat_bot_en_answer[i:i + 1024] for i in range(0, len(chat_bot_en_answer), 1024)]
     for answer_en in answers_en:
-        chat_bot_ru_answer = chat_bot_ru_answer + facebook_wmt19_en_ru(answer_en)
+        chat_bot_ru_answer = chat_bot_ru_answer + facebook_wmt21_en_x(answer_en)
     # Split output by 4096 symbols
     answers = [chat_bot_ru_answer[i:i + 4096] for i in range(0, len(chat_bot_ru_answer), 4096)]
     for answer in answers:
@@ -337,7 +378,7 @@ async def photo_classification(update: Update, context: ContextTypes.DEFAULT_TYP
     file_path   = await new_file.download_to_drive(custom_path="data/images/"+file_name)
     description = image_category_32_384(file_path)
     en_text     = "Most likely it's " + description
-    ru_text     = facebook_wmt19_en_ru(en_text)
+    ru_text     = facebook_wmt21_en_x(en_text)
     await context.bot.send_message(chat_id=update.effective_chat.id, text=en_text + "\n" + ru_text)
     # Upscaler
     upscaled_picture = stable_diffusion_x4_upscaler(description, str(file_path))
@@ -395,11 +436,11 @@ if __name__ == '__main__':
 
 # LLM
     # /t command - send question to Llama_2-13B-chat-GPTQ q4
-    tb_llama_2_handler   = CommandHandler('t',    tb_llama_2)
+    tb_llama_2_handler   = CommandHandler('tm',    tb_llama_2)
     application.add_handler(tb_llama_2_handler)
 
     # /tm command - send question to Mistral-7B-GPTQ q8
-    mistral_7b_handler = CommandHandler('tm',    mistral_7b)
+    mistral_7b_handler = CommandHandler('t',    mistral_7b)
     application.add_handler(mistral_7b_handler)
 
     # /tr command - Chat via russian Translator

@@ -44,7 +44,7 @@ def Llama_2_13B_chat_GPTQ(user_prompt, context, initial_prompt):
 
     #prompt_template=f'''[INST] <<SYS>>{initial_prompt} {context}<</SYS>>{user_prompt}[/INST]'''
 
-    prompt_template=f'''[INST] <<SYS>>
+    full_templated_prompt=f'''[INST] <<SYS>>
     {initial_prompt}
     <</SYS>> [/INST]
     {context}
@@ -52,9 +52,15 @@ def Llama_2_13B_chat_GPTQ(user_prompt, context, initial_prompt):
 
     '''
 
-    print("----------------------------------------------prompt to AI-----------------------------------------------------")
-    print(prompt_template)
-    print("---------------------------------------------------------------------------------------------------------------")
+    # print("----------------------------------------------prompt to AI-----------------------------------------------------")
+    # print(prompt_template)
+    # print("---------------------------------------------------------------------------------------------------------------")
+
+    # How many words and tokens are in the full_prompt?
+    num_words   = len(full_templated_prompt.split())
+    num_tokens  = len(tokenizer.tokenize(full_templated_prompt))
+
+
     # # print("\n\n*** Generate:")
     # input_ids = tokenizer(prompt_template, return_tensors='pt').input_ids.cuda()
     # output = model.generate(
@@ -85,10 +91,10 @@ def Llama_2_13B_chat_GPTQ(user_prompt, context, initial_prompt):
     )
 
     try:
-        answer = pipe(prompt_template)[0]['generated_text']
+        answer = pipe(full_templated_prompt)[0]['generated_text']
     except RuntimeError as e:
-        return f"Plese, repeat the question.\nRuntimeError: {e}"
-    print("-------------------------------------------------ANSWER--------------------------------------------------------")
-    print(answer)
-    print("---------------------------------------------------------------------------------------------------------------")
-    return answer
+        return f"Plese, repeat the question.\nRuntimeError: {e}", 0, 0
+    # print("-------------------------------------------------ANSWER--------------------------------------------------------")
+    # print(answer)
+    # print("---------------------------------------------------------------------------------------------------------------")
+    return answer, num_tokens, num_words
