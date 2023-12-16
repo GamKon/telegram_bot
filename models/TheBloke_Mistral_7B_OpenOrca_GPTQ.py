@@ -37,6 +37,7 @@ def Mistral_7B_OpenOrca_GPTQ(user_prompt, context_string, initial_prompt):
         tokenizer=tokenizer,
         max_new_tokens=512,
         do_sample=True,
+#        num_beams=3,
         temperature=0.7,
         top_p=0.95,
         top_k=40,

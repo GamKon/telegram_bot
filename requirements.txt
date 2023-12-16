@@ -7,3 +7,6 @@ sacremoses # to use XLMTokenizer
 optimum
 auto-gptq
 emoji
+accelerate
+bitsandbytes
+scipy

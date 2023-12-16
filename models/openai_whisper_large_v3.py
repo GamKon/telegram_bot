@@ -32,7 +32,9 @@ def openai_whisper_large_v3(audio_file):
     #sample = dataset[0]["audio"]
     #result = pipe(sample)
 
+# Just transcription
     #result = pipe(str(audio_file)
+
     result = pipe(str(audio_file), generate_kwargs={"task": "translate"})
 
     #print(result["text"])
