@@ -4,7 +4,8 @@ FROM pytorch/pytorch:latest AS telegram-ai-bot
 #install tools
 RUN apt-get update && apt-get install --assume-yes \
     curl \
-    nano
+    nano \
+    git
 #     unzip
 
 #RUN rm -rf /usr/lib/x86_64-linux-gnu/libnvidia-*.so* \
@@ -26,7 +27,10 @@ COPY ops_for_image.yml ./ops.yml
 # Copy the requirements file
 COPY requirements.txt .
 # Install the dependencies
-RUN pip install -r requirements.txt
+RUN pip install --upgrade pip
+RUN pip install --no-cache-dir --upgrade -r requirements.txt
+RUN pip3 install --upgrade "git+https://github.com/huggingface/transformers" optimum
+
 
 # Create directories for media files
 RUN mkdir -p /app/data/generated_images

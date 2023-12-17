@@ -69,6 +69,8 @@ actions:
   shell:
     command: docker compose exec telegram-ai-bot sh
     load_secrets: true
+  prune:
+    command: docker system prune -f --all
 
 # Service telegram_ai_bot
   service-restart:

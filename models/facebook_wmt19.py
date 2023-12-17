@@ -22,7 +22,7 @@ def facebook_wmt19_ru_en(ru_en_input):
     outputs = model.generate(input_ids)
     decoded = tokenizer.decode(outputs[0], skip_special_tokens=True)
 #    print(decoded) # Machine learning is great, isn't it?
-    return decoded
+    return str(decoded)
 
 #print(facebook_wmt19_en_ru("Machine learning is great, isn't it?"))
 #print(facebook_wmt19_ru_en("Машинное обучение - это здорово, не так ли?"))

@@ -2,8 +2,10 @@
 
 from transformers import AutoModelForCausalLM, AutoTokenizer, pipeline
 
-def Mistral_7B_OpenOrca_GPTQ(user_prompt, context, initial_prompt):
-    model_name_or_path = "TheBloke/Mistral-7B-OpenOrca-GPTQ"
+def Mistral_7B_OpenOrca_GPTQ(user_prompt, context_string, initial_prompt):
+#    model_name_or_path = "TheBloke/Mistral-7B-OpenOrca-GPTQ"
+    model_name_or_path = "TheBloke/Mistral-7B-Instruct-v0.2-GPTQ"
+
     # To use a different branch, change revision
     # For example: revision="gptq-4bit-32g-actorder_True"
     revision = "gptq-8bit-32g-actorder_True"
@@ -14,18 +16,37 @@ def Mistral_7B_OpenOrca_GPTQ(user_prompt, context, initial_prompt):
 
     tokenizer = AutoTokenizer.from_pretrained(model_name_or_path, use_fast=True)
 
-    prompt_template=f'''<|im_start|>system
-    {initial_prompt}<|im_end|>
-    {context}
-    <|im_start|>user
-    {user_prompt}<|im_end|>
-    <|im_start|>assistant
+    full_templated_prompt=f'''[INST] <<SYS>> system:
+    {initial_prompt} <</SYS>> [/INST]
+    {context_string}
+    <s>[INST]
+    {user_prompt} [/INST]
     '''
 
+# For rpg game
+    # full_templated_prompt=f'''[INST] <<SYS>> system:
+    # {initial_prompt} <</SYS>> [/INST]
+    # {context_string}
+    # <s>[INST] player:
+    # {user_prompt} [/INST]
+    # game:
+    # '''
+
+    # full_templated_prompt=f'''<|im_start|>system
+    # {initial_prompt}<|im_end|>
+    # {context_string}
+    # <|im_start|>user
+    # {user_prompt}<|im_end|>
+    # <|im_start|>assistant
+    # '''
 
     print("----------------------------------------------prompt to AI-----------------------------------------------------")
-    print(prompt_template)
+    print(full_templated_prompt)
     print("---------------------------------------------------------------------------------------------------------------")
+
+    # How many words and tokens are in the full_prompt?
+    num_words   = len(full_templated_prompt.split())
+    num_tokens  = len(tokenizer.tokenize(full_templated_prompt))
 
     pipe = pipeline(
         "text-generation",
@@ -33,14 +54,15 @@ def Mistral_7B_OpenOrca_GPTQ(user_prompt, context, initial_prompt):
         tokenizer=tokenizer,
         max_new_tokens=512,
         do_sample=True,
+#        num_beams=3,
         temperature=0.7,
         top_p=0.95,
         top_k=40,
         repetition_penalty=1.1
     )
 
-    answer = pipe(prompt_template)[0]['generated_text']
-    print("-------------------------------------------------ANSWER--------------------------------------------------------")
-    print(answer)
-    print("---------------------------------------------------------------------------------------------------------------")
-    return answer
+    answer = pipe(full_templated_prompt)[0]['generated_text']
+    # print("-------------------------------------------------ANSWER--------------------------------------------------------")
+    # print(answer)
+    # print("---------------------------------------------------------------------------------------------------------------")
+    return answer, num_tokens, num_words

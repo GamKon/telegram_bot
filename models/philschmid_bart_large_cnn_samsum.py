@@ -3,11 +3,23 @@
 
 from transformers import pipeline
 
-def bart_large_cnn_samsum(text_to_summarize):
+def bart_large_cnn_samsum(text_to_summarize, desired_length):
 
     summarizer = pipeline("summarization", model="philschmid/bart-large-cnn-samsum")
 
-    return summarizer(text_to_summarize, max_length=2048)[0]['summary_text']
+#    desired_length = 200
+
+    number_input_words = len(text_to_summarize.split())
+
+    if number_input_words < desired_length * 2:
+        return text_to_summarize
+    else:
+        return summarizer(
+            text_to_summarize,
+            min_new_tokens = desired_length,
+            max_new_tokens = number_input_words
+    #        max_length=max_length
+        )[0]['summary_text']
 
 
 # conversation = '''Jeff: Can I train a 🤗 Transformers model on Amazon SageMaker?
