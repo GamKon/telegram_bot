@@ -1,5 +1,5 @@
 python-telegram-bot
-transformers
+#transformers
 diffusers
 accelerate
 einops # for chat_phi_1_5

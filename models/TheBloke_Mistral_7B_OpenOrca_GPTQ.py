@@ -3,7 +3,9 @@
 from transformers import AutoModelForCausalLM, AutoTokenizer, pipeline
 
 def Mistral_7B_OpenOrca_GPTQ(user_prompt, context_string, initial_prompt):
-    model_name_or_path = "TheBloke/Mistral-7B-OpenOrca-GPTQ"
+#    model_name_or_path = "TheBloke/Mistral-7B-OpenOrca-GPTQ"
+    model_name_or_path = "TheBloke/Mistral-7B-Instruct-v0.2-GPTQ"
+
     # To use a different branch, change revision
     # For example: revision="gptq-4bit-32g-actorder_True"
     revision = "gptq-8bit-32g-actorder_True"
@@ -14,18 +16,33 @@ def Mistral_7B_OpenOrca_GPTQ(user_prompt, context_string, initial_prompt):
 
     tokenizer = AutoTokenizer.from_pretrained(model_name_or_path, use_fast=True)
 
-    full_templated_prompt=f'''<|im_start|>system
-    {initial_prompt}<|im_end|>
+    full_templated_prompt=f'''[INST] <<SYS>> system:
+    {initial_prompt} <</SYS>> [/INST]
     {context_string}
-    <|im_start|>user
-    {user_prompt}<|im_end|>
-    <|im_start|>assistant
+    <s>[INST]
+    {user_prompt} [/INST]
     '''
 
+# For rpg game
+    # full_templated_prompt=f'''[INST] <<SYS>> system:
+    # {initial_prompt} <</SYS>> [/INST]
+    # {context_string}
+    # <s>[INST] player:
+    # {user_prompt} [/INST]
+    # game:
+    # '''
 
-    # print("----------------------------------------------prompt to AI-----------------------------------------------------")
-    # print(full_templated_prompt)
-    # print("---------------------------------------------------------------------------------------------------------------")
+    # full_templated_prompt=f'''<|im_start|>system
+    # {initial_prompt}<|im_end|>
+    # {context_string}
+    # <|im_start|>user
+    # {user_prompt}<|im_end|>
+    # <|im_start|>assistant
+    # '''
+
+    print("----------------------------------------------prompt to AI-----------------------------------------------------")
+    print(full_templated_prompt)
+    print("---------------------------------------------------------------------------------------------------------------")
 
     # How many words and tokens are in the full_prompt?
     num_words   = len(full_templated_prompt.split())

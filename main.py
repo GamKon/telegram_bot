@@ -19,27 +19,31 @@ from models.TheBloke_Llama_2_13B_Chat_GPTQ import Llama_2_13B_chat_GPTQ
 from models.meta_llama_Llama_2_13b_chat_hf import Llama_2_13b_chat_hf
 from models.philschmid_bart_large_cnn_samsum import bart_large_cnn_samsum
 from models.TheBloke_Mistral_7B_OpenOrca_GPTQ import Mistral_7B_OpenOrca_GPTQ
+from models.TheBloke_Mixtral_8x7B_Instruct_v0_1_GPTQ import Mistral_8x7B_Instruct_GPTQ
 
 # -----------------------------------------------------------------------------------------
 # Command handlers
 # -----------------------------------------------------------------------------------------
 # /start and /help commans
 async def help_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    #"""Sends a message with three inline buttons attached."""
-    keyboard = [
-        [
-            InlineKeyboardButton("Option 1", callback_data="1"),
-            InlineKeyboardButton("Option 2", callback_data="2"),
-        ],
-        [InlineKeyboardButton("Option 3", callback_data="3")],
-    ]
-
-    reply_markup = InlineKeyboardMarkup(keyboard)
-
-    await update.message.reply_text("Please choose:", reply_markup=reply_markup)
-
     # Print HELP_MESSAGE
-    #await context.bot.send_message(chat_id=update.effective_chat.id, text=HELP_MESSAGE)
+    await context.bot.send_message(chat_id=update.effective_chat.id, text=HELP_MESSAGE)
+
+    # Experiment with buttons
+    # #"""Sends a message with three inline buttons attached."""
+    # keyboard = [
+    #     [
+    #         InlineKeyboardButton("Option 1", callback_data="1"),
+    #         InlineKeyboardButton("Option 2", callback_data="2"),
+    #     ],
+    #     [InlineKeyboardButton("Option 3", callback_data="3")],
+    # ]
+
+    # reply_markup = InlineKeyboardMarkup(keyboard)
+
+    # await update.message.reply_text("Please choose:", reply_markup=reply_markup)
+
+
 
 # -----------------------------------------------------------------------------------------
 # BUTTONS
@@ -145,7 +149,8 @@ async def bot_ask_mistral(user_prompt, context, update):
     for i in range(1, 10):
         try:
             # Ask Mistral
-            gpt_answer, num_tokens, num_words = Mistral_7B_OpenOrca_GPTQ(user_prompt, context_string, context.user_data["initial_prompt"][0]["system_prompt"])
+            # gpt_answer, num_tokens, num_words = Mistral_7B_OpenOrca_GPTQ(user_prompt, context_string, context.user_data["initial_prompt"][0]["system_prompt"])
+            gpt_answer, num_tokens, num_words = Mistral_8x7B_Instruct_GPTQ(user_prompt, context_string, context.user_data["initial_prompt"][0]["system_prompt"])
             break
         except (ValueError, RuntimeError) as e:
             await context.bot.send_message(chat_id=update.effective_chat.id, text="Mistral crash,\n" + str(e) + "\nRetry "+str(i))
@@ -155,7 +160,7 @@ async def bot_ask_mistral(user_prompt, context, update):
             else: sleep(5)
 
     # Get the answer from the end of the returned context
-    gpt_answer = str(gpt_answer.split("assistant")[-1])
+    gpt_answer = str(gpt_answer.split("[/INST]")[-1])
 
     # Save question and answer to chat_history list of dictionaries
     context.user_data["chat_history"].append({"question": emoji.replace_emoji(user_prompt, replace=''), "answer": emoji.replace_emoji(gpt_answer.strip(), replace='')})
@@ -237,7 +242,9 @@ def construct_context_string_from_history(chat_context, model_format):
                 context_string = context_string + ("<s>[INST] "+chat_context[i]['question']+" [/INST] "+chat_context[i]['answer']+" </s>")
             elif model_format == "Mistral":
 #            context_string = context_string + (chat_context[i]['question']+" "+chat_context[i]['answer'])
-                context_string = context_string + ("<|im_start|>user "+chat_context[i]['question']+" <|im_end|> <|im_start|>assistant "+chat_context[i]['answer']+" <|im_end|> ")
+                #context_string = context_string + ("<s>[INST] player: "+chat_context[i]['question']+" [/INST] game: "+chat_context[i]['answer']+" </s>")
+                context_string = context_string + ("<s>[INST] "+chat_context[i]['question']+" [/INST] "+chat_context[i]['answer']+" </s>")
+                #context_string = context_string + ("<|im_start|>user "+chat_context[i]['question']+" <|im_end|> <|im_start|>assistant "+chat_context[i]['answer']+" <|im_end|> ")
             else:
                 debug_print("ERROR: Unknown model format")
                 context_string = " "
